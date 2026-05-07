@@ -1131,9 +1131,9 @@
   </style>
 
 <style>
-  /* --- SW4 top tab layout and refreshed colours --- */
+  /* --- SW4 corrected top tab layout + leave workflow polish --- */
   .app-topbar{
-    grid-template-columns:minmax(220px,1fr) auto !important;
+    grid-template-columns:minmax(260px,1fr) auto !important;
     grid-template-areas:
       "title actions"
       "tabs tabs" !important;
@@ -1141,17 +1141,36 @@
     row-gap:12px !important;
   }
   .app-title-block{grid-area:title !important;}
-  .app-top-actions{grid-area:actions !important; justify-content:flex-end !important;}
+  .app-top-actions{grid-area:actions !important;justify-content:flex-end !important;}
   .tabs{
     grid-area:tabs !important;
+    position:static !important;
+    top:auto !important;
+    left:auto !important;
+    right:auto !important;
+    bottom:auto !important;
+    width:100% !important;
+    margin:0 !important;
+    padding:10px 0 0 !important;
+    display:flex !important;
+    flex-direction:row !important;
+    align-items:center !important;
     justify-content:flex-start !important;
-    gap:16px !important;
+    gap:18px !important;
+    border:0 !important;
     border-top:1px solid #e5edf3 !important;
-    padding-top:10px !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+    z-index:auto !important;
     overflow-x:auto !important;
+    overflow-y:hidden !important;
     flex-wrap:nowrap !important;
   }
+  .tabs:before{display:none !important;content:none !important;}
   .tab{
+    width:auto !important;
+    min-width:max-content !important;
     background:transparent !important;
     border:none !important;
     border-radius:0 !important;
@@ -1182,7 +1201,14 @@
   .shift-TO{background:#36b6b5 !important;color:#ffffff !important;border-color:#36b6b5 !important}
   .shift-OT{background:#d79b3c !important;color:#ffffff !important;border-color:#d79b3c !important}
   .shift-LL{background:#d8cbc2 !important;color:#6f4e37 !important;border-color:#ccb4a3 !important}
-
+  .leave-status-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px}
+  .leave-status-card{border:1px solid #dbe7ef;border-radius:16px;padding:12px 14px;background:linear-gradient(180deg,#ffffff,#fbfdfe);box-shadow:0 10px 24px rgba(15,23,42,.04)}
+  .leave-status-card .label{font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#64748b}
+  .leave-status-card .value{font-size:26px;font-weight:950;color:#1f3146;line-height:1.1;margin-top:4px}
+  .leave-status-card.pending{background:linear-gradient(180deg,#fffef8,#fff8df)}
+  .leave-status-card.approved{background:linear-gradient(180deg,#f5fff9,#e9f9ef)}
+  .leave-status-card.rejected{background:linear-gradient(180deg,#fff8f8,#ffecec)}
+  .leave-status-card.total{background:linear-gradient(180deg,#fbfdff,#f2f6fb)}
   .leave-request-card{border:1px solid #dbe7ef;border-radius:18px;padding:14px 16px;background:linear-gradient(180deg,#ffffff,#fbfdfe);box-shadow:0 10px 30px rgba(15,23,42,.04)}
   .leave-request-card + .leave-request-card{margin-top:12px}
   .leave-request-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
@@ -1216,8 +1242,7 @@
   @media(max-width:760px){
     .app-topbar{grid-template-columns:1fr !important;grid-template-areas:"title" "actions" "tabs" !important;align-items:flex-start !important}
     .tabs{gap:12px !important}
-    .shift-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
-    .hourly-grid,.leave-inline-grid,.leave-approver-actions{grid-template-columns:1fr !important}
+    .leave-status-strip,.shift-choice-grid,.hourly-grid,.leave-inline-grid,.leave-approver-actions{grid-template-columns:1fr !important}
   }
 </style>
 
@@ -1314,6 +1339,7 @@
     function currentUserMatchesStaffRow(staff){if(!staff)return false;const pid=profileStaffId();if(pid&&String(pid)===String(staff.staff_id))return true;return cleanStaffName(staff.full_name||"").toLowerCase()===currentProfileName().toLowerCase();}
     function requestCodeLabel(code){const map={L:"Leave",SL:"Sick Leave",ML:"Maternity Leave",ST:"Study Leave",TI:"TIL In",TO:"TIL Out",D:"Day",N:"Night",O:"Off",R:"Rest"};return map[normaliseRosterCode(code)]||normaliseRosterCode(code)||"";}
     function requestStatusPill(status){const clean=String(status||"pending").toLowerCase();return `<span class="status-pill ${escapeHtml(clean)}">${escapeHtml(clean)}</span>`;}
+    function leaveStatusStrip(rows){const list=Array.isArray(rows)?rows:[];const pending=list.filter(r=>String(r.status||"").toLowerCase()==="pending").length;const approved=list.filter(r=>String(r.status||"").toLowerCase()==="approved").length;const rejected=list.filter(r=>String(r.status||"").toLowerCase()==="rejected").length;return `<div class="leave-status-strip"><div class="leave-status-card total"><div class="label">Total requests</div><div class="value">${list.length}</div></div><div class="leave-status-card pending"><div class="label">Pending</div><div class="value">${pending}</div></div><div class="leave-status-card approved"><div class="label">Approved</div><div class="value">${approved}</div></div><div class="leave-status-card rejected"><div class="label">Rejected</div><div class="value">${rejected}</div></div></div>`;}
     function requestSummaryText(row){const bits=[requestCodeLabel(row.request_code)];if(row.is_hourly)bits.push(`Hourly · ${escapeHtml(row.start_time||"07:00")} · ${escapeHtml(String(row.hours||"1"))} hour${Number(row.hours||1)===1?"":"s"}`);else bits.push("Full day");return bits.join(" · ");}
     function buildTabs(){document.getElementById("tabs").innerHTML=getTabs().map(([key,label])=>`<button type="button" class="tab ${appState.activeTab===key?"active":""}" onclick="renderTab('${key}')"><span>${escapeHtml(label)}</span></button>`).join("");}
     function getTabs(){const tabs=[["monthlyRoster","Monthly Roster"],["leaveTil","Leave & TIL"],["staffManagement","My Ward Staff"]];if(isRosterManager())tabs.push(["auditVisuals","Audit KPIs"],["auditHistory","Audit History"]);tabs.push(["myAccount","My Account"]);return tabs;}
@@ -1329,7 +1355,7 @@
     function closeShiftPickerModal(){const modal=document.getElementById("shiftPickerBackdrop");if(modal)modal.classList.add("hidden");shiftPickerState=null;}
     async function saveShiftPickerModal(){if(!shiftPickerState){closeShiftPickerModal();return;}const state=shiftPickerState,chosen=normaliseRosterCode(state.selectedCode),current=normaliseRosterCode(state.currentCode),notes=document.getElementById("shiftPickerNotes")?.value?.trim()||null;if(!chosen){showError("Choose a value.");return;}if(chosen==="LL"){showError("Long Leave is automatic and is no longer selectable from the legend.");return;}if(state.manage){closeShiftPickerModal();if(chosen===current)return;const storedCode=storeRosterCode(chosen);const{error}=await sb.rpc("upsert_ward_roster_override",{p_ward_id:appState.selectedWardId,p_staff_id:state.staffId,p_shift_date:state.shiftDate,p_shift_code:storedCode,p_override_reason:reasonForShift(storedCode),p_notes:notes});if(error){showError(error.message);return;}showSuccess("Roster status updated.");await renderMonthlyRoster();return;}const{error}=await sb.rpc("submit_sw4_leave_request",{p_request_date:state.shiftDate,p_request_code:chosen,p_is_hourly:false,p_start_time:null,p_hours:null,p_staff_note:notes});if(error){showError(error.message);return;}closeShiftPickerModal();showSuccess("Leave request sent to Svetlana for approval.");if(appState.activeTab==="leaveTil")await renderLeaveTil();}
     async function saveHourlyLeaveFromModal(){if(!shiftPickerState){closeShiftPickerModal();return;}const state=shiftPickerState;const staff=state.staff||findMonthlyStaff(state.staffId);if(!currentUserMatchesStaffRow(staff)&&!isLeaveApprover()){showError("Hourly leave requests can only be booked for your own row.");return;}const requestCode=normaliseRosterCode(document.getElementById("shiftPickerHourlyType")?.value||"L");const startTime=document.getElementById("shiftPickerHourlyStart")?.value||"07:00";const hours=Number(document.getElementById("shiftPickerHourlyHours")?.value||1);const notes=document.getElementById("shiftPickerHourlyNotes")?.value?.trim()||null;const{error}=await sb.rpc("submit_sw4_leave_request",{p_request_date:state.shiftDate,p_request_code:requestCode,p_is_hourly:true,p_start_time:startTime,p_hours:hours,p_staff_note:notes});if(error){showError(error.message);return;}closeShiftPickerModal();showSuccess("Hourly leave request sent to Svetlana for approval.");if(appState.activeTab==="leaveTil")await renderLeaveTil();}
-    async function renderLeaveTil(){const myResult=await sb.rpc("list_my_sw4_leave_requests");if(myResult.error)throw myResult.error;let approverRows=[];if(isLeaveApprover()){const approverResult=await sb.rpc("list_sw4_leave_requests_for_approver",{p_status:null});if(approverResult.error)throw approverResult.error;approverRows=approverResult.data||[];}const myRows=myResult.data||[];document.getElementById("content").innerHTML=`<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Leave & TIL</h2><h1>Surgical Ward 4</h1><p class="muted">Book leave from the Monthly Roster by clicking your own day cell. Private notes are visible only to Svetlana Fenech for approval.</p></div><div>${wardSelectorHtml()}</div></div></div>${isLeaveApprover()?`<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h3>Pending requests for approval</h3><p class="muted">Svetlana can read private notes and approve or reject leave / hourly leave requests here.</p></div><button class="secondary small" type="button" onclick="renderLeaveTil()">Refresh list</button></div>${approverRows.length?approverRows.map(row=>`<div class="leave-request-card"><div class="leave-request-head"><div><div class="leave-request-name">${escapeHtml(cleanStaffName(row.staff_full_name||row.full_name||"Staff member"))}</div><div class="leave-request-meta">${escapeHtml(formatDate(row.request_date))} · ${escapeHtml(requestSummaryText(row))}<br>Submitted ${escapeHtml(shortDateTime(row.created_at)||"")}</div></div><div>${requestStatusPill(row.status)}</div></div><div class="leave-inline-grid"><div><label>Request type</label><div>${escapeHtml(requestCodeLabel(row.request_code))}</div></div><div><label>Scope</label><div>${row.is_hourly?`${escapeHtml(String(row.hours||1))} hour(s)`:"Full day"}</div></div><div><label>Start</label><div>${escapeHtml(row.start_time||"—")}</div></div><div><label>Requested by</label><div>${escapeHtml(cleanStaffName(row.staff_full_name||row.full_name||""))}</div></div></div><div class="leave-request-note"><strong>Private note to Svetlana:</strong><br>${escapeHtml(row.staff_note||"No note added.")}</div><div class="leave-approver-actions"><textarea id="approverNote_${row.id}" placeholder="Optional reply / approver note"></textarea><button type="button" class="success" onclick="decideSw4LeaveRequest('${escapeHtml(row.id)}','approved')">Approve</button><button type="button" class="danger" onclick="decideSw4LeaveRequest('${escapeHtml(row.id)}','rejected')">Reject</button></div></div>`).join(""):`<div class="info">No leave or hourly leave requests are waiting for approval.</div>`}</div>`:""}<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h3>My requests</h3><p class="muted">You can see your own requests and any approver notes here.</p></div><button class="secondary small" type="button" onclick="renderLeaveTil()">Refresh list</button></div><div class="table-wrap"><table class="leave-table"><thead><tr><th>Date</th><th>Request</th><th>Details</th><th>Status</th><th>My note</th><th>Approver note</th></tr></thead><tbody>${myRows.map(row=>`<tr><td>${escapeHtml(formatDate(row.request_date))}</td><td>${escapeHtml(requestCodeLabel(row.request_code))}</td><td>${escapeHtml(requestSummaryText(row))}</td><td>${requestStatusPill(row.status)}</td><td>${escapeHtml(row.staff_note||"")}</td><td>${escapeHtml(row.approver_note||"")}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">No leave or TIL requests submitted yet.</td></tr>`}</tbody></table></div></div>`;}
+    async function renderLeaveTil(){const myResult=await sb.rpc("list_my_sw4_leave_requests");if(myResult.error)throw myResult.error;let approverRows=[];if(isLeaveApprover()){const approverResult=await sb.rpc("list_sw4_leave_requests_for_approver",{p_status:null});if(approverResult.error)throw approverResult.error;approverRows=approverResult.data||[];}const myRows=myResult.data||[];document.getElementById("content").innerHTML=`<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Leave & TIL</h2><h1>Surgical Ward 4</h1><p class="muted">Book leave from the Monthly Roster by clicking your own day cell. Private notes are visible only to Svetlana Fenech for approval.</p></div><div>${wardSelectorHtml()}</div></div>${leaveStatusStrip(myRows)}</div>${isLeaveApprover()?`<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h3>Pending requests for approval</h3><p class="muted">Svetlana can read private notes and approve or reject leave / hourly leave requests here.</p></div><button class="secondary small" type="button" onclick="renderLeaveTil()">Refresh list</button></div>${leaveStatusStrip(approverRows)}${approverRows.length?approverRows.map(row=>`<div class="leave-request-card"><div class="leave-request-head"><div><div class="leave-request-name">${escapeHtml(cleanStaffName(row.staff_full_name||row.full_name||"Staff member"))}</div><div class="leave-request-meta">${escapeHtml(formatDate(row.request_date))} · ${escapeHtml(requestSummaryText(row))}<br>Submitted ${escapeHtml(shortDateTime(row.created_at)||"")}</div></div><div>${requestStatusPill(row.status)}</div></div><div class="leave-inline-grid"><div><label>Request type</label><div>${escapeHtml(requestCodeLabel(row.request_code))}</div></div><div><label>Scope</label><div>${row.is_hourly?`${escapeHtml(String(row.hours||1))} hour(s)`:"Full day"}</div></div><div><label>Start</label><div>${escapeHtml(row.start_time||"—")}</div></div><div><label>Requested by</label><div>${escapeHtml(cleanStaffName(row.staff_full_name||row.full_name||""))}</div></div></div><div class="leave-request-note"><strong>Private note to Svetlana:</strong><br>${escapeHtml(row.staff_note||"No note added.")}</div><div class="leave-approver-actions"><textarea id="approverNote_${row.id}" placeholder="Optional reply / approver note"></textarea><button type="button" class="success" onclick="decideSw4LeaveRequest('${escapeHtml(row.id)}','approved')">Approve</button><button type="button" class="danger" onclick="decideSw4LeaveRequest('${escapeHtml(row.id)}','rejected')">Reject</button></div></div>`).join(""):`<div class="info">No leave or hourly leave requests are waiting for approval.</div>`}</div>`:""}<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h3>My requests</h3><p class="muted">You can see your own requests and any approver notes here.</p></div><button class="secondary small" type="button" onclick="renderLeaveTil()">Refresh list</button></div><div class="table-wrap"><table class="leave-table"><thead><tr><th>Date</th><th>Request</th><th>Details</th><th>Status</th><th>My note</th><th>Approver note</th></tr></thead><tbody>${myRows.map(row=>`<tr><td>${escapeHtml(formatDate(row.request_date))}</td><td>${escapeHtml(requestCodeLabel(row.request_code))}</td><td>${escapeHtml(requestSummaryText(row))}</td><td>${requestStatusPill(row.status)}</td><td>${escapeHtml(row.staff_note||"")}</td><td>${escapeHtml(row.approver_note||"")}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">No leave or TIL requests submitted yet.</td></tr>`}</tbody></table></div></div>`;}
     async function decideSw4LeaveRequest(requestId,decision){clearMessage();const approverNote=document.getElementById(`approverNote_${requestId}`)?.value?.trim()||null;const{error}=await sb.rpc("decide_sw4_leave_request",{p_request_id:requestId,p_decision:decision,p_approver_note:approverNote});if(error){showError(error.message);return;}showSuccess(decision==="approved"?"Request approved.":"Request rejected.");await renderLeaveTil();}
 
 </script>
