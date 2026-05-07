@@ -1359,5 +1359,92 @@
     async function decideSw4LeaveRequest(requestId,decision){clearMessage();const approverNote=document.getElementById(`approverNote_${requestId}`)?.value?.trim()||null;const{error}=await sb.rpc("decide_sw4_leave_request",{p_request_id:requestId,p_decision:decision,p_approver_note:approverNote});if(error){showError(error.message);return;}showSuccess(decision==="approved"?"Request approved.":"Request rejected.");await renderLeaveTil();}
 
 </script>
+
+<style>
+  /* --- SW4 v4: match old monthly roster screenshot colours + true top tabs --- */
+  :root{
+    --sw4-navy:#284158;
+    --sw4-header:#263d54;
+    --sw4-tab:#6f7b89;
+    --sw4-teal:#158c92;
+    --sw4-page:#f2f4f7;
+  }
+  body{background:#f2f4f7 !important;}
+  header{background:#263d54 !important;box-shadow:0 6px 18px rgba(22,36,52,.16) !important;border-bottom:1px solid rgba(255,255,255,.10) !important;}
+  .brand:before{background:linear-gradient(135deg,#1f9aa0,#187b86) !important;box-shadow:none !important;}
+  .container{padding:76px 16px 22px 16px !important;max-width:none !important;margin:0 !important;}
+  #appScreen > .card:first-child{background:#ffffff !important;border:1px solid #dbe2ea !important;border-radius:0 !important;box-shadow:0 2px 8px rgba(15,23,42,.05) !important;padding:12px 16px 8px !important;}
+  .app-topbar{display:grid !important;grid-template-columns:minmax(230px,1fr) auto !important;grid-template-areas:"title actions" "tabs tabs" !important;align-items:end !important;gap:8px 12px !important;}
+  .app-title-block{grid-area:title !important;}
+  .app-top-actions{grid-area:actions !important;justify-content:flex-end !important;align-items:center !important;}
+  #mainTitle{font-size:20px !important;color:#1f3146 !important;margin:0 0 2px !important;}
+  #mainSubtitle{font-size:12px !important;color:#667085 !important;font-weight:650 !important;}
+  .tabs{grid-area:tabs !important;position:static !important;top:auto !important;left:auto !important;right:auto !important;bottom:auto !important;width:100% !important;margin:2px 0 0 !important;padding:8px 0 0 !important;display:flex !important;flex-direction:row !important;align-items:center !important;justify-content:flex-start !important;gap:22px !important;background:transparent !important;border:0 !important;border-top:1px solid #e5eaf0 !important;border-radius:0 !important;box-shadow:none !important;z-index:auto !important;overflow-x:auto !important;overflow-y:hidden !important;flex-wrap:nowrap !important;}
+  .tabs:before{display:none !important;content:none !important;}
+  .tab{width:auto !important;min-width:max-content !important;background:transparent !important;border:0 !important;border-radius:0 !important;padding:2px 0 8px !important;min-height:auto !important;box-shadow:none !important;color:#6f7b89 !important;font-size:12px !important;font-weight:750 !important;letter-spacing:0 !important;border-bottom:2px solid transparent !important;line-height:1.2 !important;}
+  .tab:hover{background:transparent !important;color:#25384d !important;border-bottom-color:#c9d3df !important;}
+  .tab.active{background:transparent !important;color:#1e354a !important;border-bottom-color:#1f9aa0 !important;box-shadow:none !important;}
+  .tab .nav-icon{display:none !important;}
+  .card{border-color:#dbe2ea !important;border-radius:8px !important;box-shadow:0 2px 8px rgba(15,23,42,.04) !important;}
+  .roster-hero{background:#fff !important;border-radius:8px !important;}
+  .roster-hero h2{color:#64748b !important;font-size:12px !important;text-transform:none !important;letter-spacing:0 !important;margin-bottom:5px !important;}
+  .roster-hero h1{font-size:26px !important;color:#1f3146 !important;}
+  .legend-compact{gap:10px 13px !important;align-items:center !important;}
+  .legend-compact .muted{font-size:12px !important;color:#475467 !important;font-weight:700 !important;}
+  .roster-table th:not(:first-child){background:#263d54 !important;color:#ffffff !important;border-color:#8793a0 !important;}
+  .roster-table th:first-child{background:#263d54 !important;color:#ffffff !important;border-color:#8793a0 !important;}
+  .roster-table td:first-child{background:#f7f9fb !important;}
+  .shift-D,.shift-M,.shift-E{background:#2f4863 !important;color:#ffffff !important;border-color:#2f4863 !important;}
+  .shift-N{background:#7a80cd !important;color:#ffffff !important;border-color:#7a80cd !important;}
+  .shift-O{background:#eef1f5 !important;color:#6b7280 !important;border-color:#d8dee8 !important;}
+  .shift-R{background:#f5f2ee !important;color:#7b6a58 !important;border-color:#e7d9c9 !important;}
+  .shift-L,.shift-AL{background:#d7d2c8 !important;color:#4b5563 !important;border-color:#c8beac !important;}
+  .shift-SL{background:#ef4444 !important;color:#ffffff !important;border-color:#ef4444 !important;}
+  .shift-ML{background:#d946c7 !important;color:#ffffff !important;border-color:#d946c7 !important;}
+  .shift-ST{background:#3f9bc7 !important;color:#ffffff !important;border-color:#3f9bc7 !important;}
+  .shift-TI{background:#4fb7ad !important;color:#ffffff !important;border-color:#4fb7ad !important;}
+  .shift-TO{background:#218d95 !important;color:#ffffff !important;border-color:#218d95 !important;}
+  .shift-OT{background:#db9427 !important;color:#ffffff !important;border-color:#db9427 !important;}
+  .shift-VL{background:#2fbf83 !important;color:#ffffff !important;border-color:#2fbf83 !important;}
+  .shift-PL{background:#fff3bf !important;color:#8a6100 !important;border-color:#f0cc58 !important;}
+  .shift-APP,.shift-ALV{background:#d8f5df !important;color:#146c43 !important;border-color:#7bd99a !important;}
+  .shift-LL{background:#e5e7eb !important;color:#6b7280 !important;border-color:#d1d5db !important;}
+  .leave-status-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px;}
+  .leave-status-card{border:1px solid #dbe7ef;border-radius:12px;padding:11px 13px;background:#fff;box-shadow:0 2px 8px rgba(15,23,42,.04);}
+  .leave-status-card .label{font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#64748b;}
+  .leave-status-card .value{font-size:24px;font-weight:950;color:#1f3146;line-height:1.1;margin-top:4px;}
+  .leave-status-card.pending{background:#fffdf2;}
+  .leave-status-card.approved{background:#f0fff4;}
+  .leave-status-card.rejected{background:#fff4f4;}
+  .leave-status-card.total{background:#f8fbff;}
+  @media(max-width:760px){
+    .container{padding:126px 10px 18px !important;}
+    .app-topbar{grid-template-columns:1fr !important;grid-template-areas:"title" "actions" "tabs" !important;align-items:flex-start !important;}
+    .app-top-actions{justify-content:flex-start !important;}
+    .tabs{gap:16px !important;}
+    .leave-status-strip{grid-template-columns:1fr !important;}
+  }
+</style>
+
+
+<script>
+  /* --- SW4 v4 monthly roster legend + pending/approved leave overlay --- */
+  (function(){
+    const originalBuildTabs = window.buildTabs;
+    window.buildTabs = function(){
+      const tabsEl=document.getElementById("tabs");
+      if(!tabsEl) return;
+      tabsEl.innerHTML=getTabs().map(([key,label])=>`<button type="button" class="tab ${appState.activeTab===key?"active":""}" onclick="renderTab('${key}')"><span>${escapeHtml(label)}</span></button>`).join("");
+    };
+  })();
+  function normaliseRosterCode(code){const raw=String(code||"").trim().toUpperCase();if(!raw||raw==="—"||raw==="-")return"";const aliases={A:"L",AL:"L",ANNUAL:"L",ANNUAL_LEAVE:"L",LEAVE:"L",S:"SL",SICK:"SL",SICK_LEAVE:"SL",MATERNITY:"ML",MATERNITY_LEAVE:"ML",STUDY:"ST",STUDY_LEAVE:"ST",TILIN:"TI",TIL_IN:"TI",TILOUT:"TO",TIL_OUT:"TO",OVERTIME:"OT",VACATION:"VL",VACATION_LEAVE:"VL",PENDING:"PL",PENDING_LEAVE:"PL",APPROVED:"APP",APPROVED_LEAVE:"APP",LONG_LEAVE:"LL"};return aliases[raw]||raw;}
+  function shiftLabel(code){const labels={D:"Day",N:"Night",O:"Off",R:"Rest",L:"Leave",AL:"Leave",SL:"Sick Leave",ML:"Maternity",ST:"Study",TI:"TIL In",TO:"TIL Out",OT:"Overtime",VL:"Vacation Leave",PL:"Pending Leave",APP:"Approved Leave",ALV:"Approved Leave",LL:"Long Leave",M:"Morning",E:"Evening"};const clean=normaliseRosterCode(code);return labels[clean]||clean||"";}
+  function shiftBadge(code){const cleanCode=normaliseRosterCode(code||"");if(!cleanCode)return`<span class="shift-cell shift-O">—</span>`;return`<span class="shift-cell shift-${escapeHtml(cleanCode)}" title="${escapeHtml(displayShiftCode(cleanCode))} — ${escapeHtml(shiftLabel(cleanCode))}">${escapeHtml(displayShiftCode(cleanCode))}</span>`;}
+  function displayShiftCode(code){const clean=normaliseRosterCode(code);if(clean==="APP")return"AL";return clean||"—";}
+  function leaveOverlayDisplayCode(map, staffId, isoDate, fallbackCode){const key=`${staffId}|${isoDate}`;const row=map[key];if(!row)return fallbackCode;const status=String(row.status||"").toLowerCase();if(status==="pending")return"PL";if(status==="approved")return"APP";return fallbackCode;}
+  async function loadLeaveStatusMapForMonth(start,end){const out={};try{const res=await sb.rpc("get_sw4_leave_roster_statuses",{p_start_date:start,p_end_date:end});if(res.error)throw res.error;for(const row of (res.data||[])){out[`${row.staff_id}|${row.request_date}`]=row;}return out;}catch(err){console.warn("Leave overlay not loaded",err);return out;}}
+  async function renderMonthlyRoster(){const wardId=requireSelectedWard();const monthValue=appState.selectedMonth;const{start,end,days}=monthRange(monthValue);const selectedW=selectedWard();const[rosterResult,holidayResult,leaveMap]=await Promise.all([sb.rpc("get_my_ward_roster_between",{p_ward_id:wardId,p_start_date:start,p_end_date:end}),sb.rpc("get_malta_public_holidays",{p_start_date:start,p_end_date:end}),loadLeaveStatusMapForMonth(start,end)]);if(rosterResult.error)throw rosterResult.error;if(holidayResult.error)throw holidayResult.error;const grouped=groupRosterByStaff(rosterResult.data||[]),holidays=holidayResult.data||[];appState.monthlyRosterRows=grouped;const holidayMap={};for(const h of holidays)holidayMap[h.holiday_date]=h;document.getElementById("content").innerHTML=`<div class="card roster-hero"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Monthly Roster</h2><h1>${escapeHtml(selectedW?.ward_name||"Selected Ward")}</h1><p class="muted">${escapeHtml(selectedW?.ward_code||"")} · ${escapeHtml(monthLabel(monthValue))} · Click your own cell to book leave, or update shifts if authorised.</p></div><div class="roster-nav">${wardSelectorHtml()}<div><label>Month</label><input type="month" value="${monthValue}" onchange="setSelectedMonth(this.value)"></div><div><label>Jump to date</label><input id="rosterJumpDate" type="date"></div><button class="secondary" type="button" onclick="jumpRosterDate()">Jump</button><button class="secondary" type="button" onclick="changeRosterMonth(-1)">← Prev</button><button class="secondary" type="button" onclick="goRosterToday()">Today</button><button class="secondary" type="button" onclick="changeRosterMonth(1)">Next →</button></div></div></div><div class="card"><div class="legend-compact">${legend("D","Day")}${legend("N","Night")}${legend("O","Off")}${legend("R","Rest")}${legend("PL","Pending Leave")}${legend("APP","Approved Leave")}${legend("L","Leave")}${legend("SL","Sick Leave")}${legend("ML","Maternity")}${legend("ST","Study")}${legend("TI","TIL In")}${legend("TO","TIL Out")}${legend("OT","Overtime")}${legend("VL","Vacation Leave")}</div></div><div class="card roster-table-card"><div class="table-wrap roster-table-wrap"><table class="roster-table"><thead><tr><th>Staff Member</th>${days.map(d=>{const key=isoFromDate(d),h=holidayMap[key];return `<th class="${h?"holiday-col":""} ${key===todayISO()?"today-col":""}"><div class="day-head"><span>${weekdayShort(d)}</span><span>${d.getDate()}</span>${h?`<span class="holiday-label" title="${escapeHtml(h.holiday_name)}">${escapeHtml(h.short_label||h.holiday_name)}</span>`:""}</div></th>`;}).join("")}</tr></thead><tbody>${grouped.map(staff=>`<tr><td><span class="staff-name-line">${escapeHtml(cleanStaffName(staff.full_name))}</span><span class="staff-role-line">${escapeHtml(labelRole(staff.role))}</span><span class="staff-shift-line">${escapeHtml(staffRosterLabel(staff))}</span></td>${days.map(day=>{const key=isoFromDate(day),r=staff.days[key],actualCode=r?.live_shift_code||"",baseDisplay=longLeaveDisplayCode(staff.days,key,actualCode),displayCode=leaveOverlayDisplayCode(leaveMap,staff.staff_id,key,baseDisplay),h=holidayMap[key];return `<td class="${h?"holiday-col":""} ${key===todayISO()?"today-col":""}">${shiftButton(staff.staff_id,key,displayCode,r?.source_type==="override",actualCode)}</td>`;}).join("")}</tr>`).join("")||`<tr><td colspan="${days.length+1}" class="muted">No core roster rows found for this ward/month.</td></tr>`}</tbody></table></div></div>`;}
+</script>
+
 </body>
 </html>
