@@ -743,7 +743,26 @@
       border:0!important;
       background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(245,252,252,.94))!important;
       box-shadow:0 14px 42px rgba(15,38,53,.07)!important;
-      padding:18px 20px!important;
+      padding:16px 18px!important;
+    }
+
+    .app-topbar{
+      display:grid!important;
+      grid-template-columns:minmax(210px,1fr) auto auto!important;
+      align-items:center!important;
+      gap:14px!important;
+    }
+
+    .app-title-block{
+      min-width:0!important;
+    }
+
+    .app-top-actions{
+      display:flex!important;
+      align-items:center!important;
+      gap:10px!important;
+      justify-content:flex-end!important;
+      flex-wrap:wrap!important;
     }
 
     #mainTitle{
@@ -1075,18 +1094,18 @@
       .container{
         padding:126px 12px 18px!important;
       }
+      .app-topbar{
+        grid-template-columns:1fr!important;
+        align-items:flex-start!important;
+      }
       .tabs{
-        top:76px!important;
         width:100%!important;
-        margin:12px 0 14px!important;
-        padding:8px!important;
+        justify-content:flex-start!important;
         overflow-x:auto!important;
         overflow-y:hidden!important;
         flex-wrap:nowrap!important;
         gap:6px!important;
-      }
-      .tabs:before{
-        display:none!important;
+        padding-bottom:2px!important;
       }
       .tab{
         width:auto!important;
@@ -1104,6 +1123,9 @@
         width:14px!important;
         height:14px!important;
       }
+      .app-top-actions{
+        justify-content:flex-start!important;
+      }
     }
 
   </style>
@@ -1115,7 +1137,7 @@
   </header>
   <main class="container">
     <section id="loginScreen" class="login-wrap"><div class="card"><h1>Sign in</h1><p class="muted">Use the Supabase test accounts created for this project.</p><div id="loginMessage"></div><div class="grid"><div><label>Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="name@example.com" /></div><div><label>Password</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password" /></div><button type="button" onclick="signIn()">Sign in</button></div></div></section>
-    <section id="appScreen" class="hidden"><div class="card"><div class="actions" style="justify-content:space-between"><div><h1 id="mainTitle">Dashboard</h1><div class="muted" id="mainSubtitle"></div></div><div class="actions"><button class="secondary" type="button" onclick="reloadCurrentTab()">Refresh</button><button class="danger" type="button" onclick="signOut()">Sign out</button></div></div></div><div class="tabs" id="tabs"></div><div id="message"></div><div id="content"></div></section>
+    <section id="appScreen" class="hidden"><div class="card"><div class="app-topbar"><div class="app-title-block"><h1 id="mainTitle">Dashboard</h1><div class="muted" id="mainSubtitle"></div></div><div class="tabs" id="tabs"></div><div class="app-top-actions"><button class="secondary" type="button" onclick="reloadCurrentTab()">Refresh</button><button class="danger" type="button" onclick="signOut()">Sign out</button></div></div></div><div id="message"></div><div id="content"></div></section>
   </main>
   <script>
     const SUPABASE_URL_RAW = "https://vmdcfnjsplmmsivekjlm.supabase.co";
@@ -1129,7 +1151,7 @@
     document.addEventListener("DOMContentLoaded",async()=>{const{data}=await sb.auth.getSession();appState.session=data.session;sb.auth.onAuthStateChange((_event,session)=>{appState.session=session;boot();});await boot();});
     async function boot(){clearMessage();if(!appState.session){showLogin();return;}await loadReferenceData();showApp();}
     function showLogin(){document.getElementById("loginScreen").classList.remove("hidden");document.getElementById("appScreen").classList.add("hidden");document.getElementById("topUser").textContent="Not signed in";}
-    function showApp(){document.getElementById("loginScreen").classList.add("hidden");document.getElementById("appScreen").classList.remove("hidden");const p=appState.profile;if(!p){showError("Login succeeded, but no staff profile was returned for this account. Check the staff/user profile link in Supabase.");document.getElementById("topUser").textContent="Signed in — no profile returned";return;}document.getElementById("topUser").innerHTML=`<strong>${escapeHtml(p.full_name||p.email||"Signed in")}</strong><br>${labelRole(p.role)}`;document.getElementById("mainTitle").textContent="Surgical Ward 4";document.getElementById("mainSubtitle").textContent="Quick access buttons are now shown at the top for a cleaner layout.";const validTabs=getTabs().map(t=>t[0]);if(!appState.activeTab||!validTabs.includes(appState.activeTab))appState.activeTab="monthlyRoster";buildTabs();renderTab(appState.activeTab);}
+    function showApp(){document.getElementById("loginScreen").classList.add("hidden");document.getElementById("appScreen").classList.remove("hidden");const p=appState.profile;if(!p){showError("Login succeeded, but no staff profile was returned for this account. Check the staff/user profile link in Supabase.");document.getElementById("topUser").textContent="Signed in — no profile returned";return;}document.getElementById("topUser").innerHTML=`<strong>${escapeHtml(p.full_name||p.email||"Signed in")}</strong><br>${labelRole(p.role)}`;document.getElementById("mainTitle").textContent="Surgical Ward 4";document.getElementById("mainSubtitle").textContent="Monthly roster and ward tools.";const validTabs=getTabs().map(t=>t[0]);if(!appState.activeTab||!validTabs.includes(appState.activeTab))appState.activeTab="monthlyRoster";buildTabs();renderTab(appState.activeTab);}
     async function loadReferenceData(){const{data,error}=await sb.rpc("get_app_reference_data");if(error){showError("Could not load app reference data: "+error.message);throw error;}let refData=data;if(typeof refData==="string"){try{refData=JSON.parse(refData);}catch(_e){}}if(Array.isArray(refData)){const first=refData[0]||{};refData=first.get_app_reference_data||first.result||first.data||first;}if(!refData||typeof refData!=="object")throw new Error("get_app_reference_data did not return a usable object.");appState.ref=refData||{};appState.profile=appState.ref.profile||appState.ref.user_profile||appState.ref.current_profile||null;if(!appState.profile)throw new Error("No user profile returned by get_app_reference_data.");const rawWards=appState.ref.accessible_wards||appState.ref.wards||[];appState.wards=rawWards.map(w=>({ward_id:w.ward_id||w.id,ward_code:w.ward_code||w.code||"",ward_name:cleanWardName(w.ward_name||w.name||"",w.ward_code||w.code||"")})).filter(w=>w.ward_id);if(appState.wards.length>0){const stillValid=appState.wards.some(w=>w.ward_id===appState.selectedWardId);if(!appState.selectedWardId||!stillValid)appState.selectedWardId=appState.wards[0].ward_id;}}
     function getTabs(){const isCharge=appState.profile?.role==="charge_nurse";const tabs=[["monthlyRoster","Monthly Roster"],["staffManagement","My Ward Staff"]];if(isCharge){tabs.push(["auditVisuals","Audit KPIs"],["auditHistory","Audit History"]);}tabs.push(["myAccount","My Account"]);return tabs;}
     function tabIconSvg(key){
