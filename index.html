@@ -3224,9 +3224,9 @@
 
 <script>
 /* =========================================================
-   SW4 v17 — compact clearer legend + pending red outline + hourly marks
+   SW4 v18 — compact scale + refined legend + hourly marks
    - removes generic Pending Leave
-   - renames Approved to Leave VL
+   - renames Leave VL to Leave and uses pink
    - approved VL/TIL/OT/COD use distinct tones
    - pending VL/TIL/OT/COD use bright red outline until approved
    - hourly Leave/TIL/OT shows hours in monthly roster boxes
@@ -3260,7 +3260,7 @@
     const clean=v17Code(code);
     const labels={
       D:'Day', N:'Night', O:'Off', R:'Rest',
-      VL:'Leave VL', PVL:'Pending Leave VL',
+      VL:'Leave', PVL:'Pending Leave',
       SL:'Sick Leave', ML:'Maternity', ST:'Study',
       ATI:'Approved TIL In', PTI:'Pending TIL In',
       ATO:'Approved TIL Out', PTO:'Pending TIL Out',
@@ -3378,7 +3378,7 @@
     return `<span class="v17-legend-item ${extraClass}">${shiftBadge(code)} <span class="muted">${escapeHtml(label)}</span></span>`;
   }
   function v17PendingSample(){
-    return `<span class="v17-legend-item v17-pending-explain"><span class="shift-cell shift-PVL">VL</span> <span class="muted">Red outline = pending approval</span></span>`;
+    return `<span class="v17-legend-item v18-pending-legend"><span class="shift-cell v18-pending-empty" aria-hidden="true"></span> <span class="muted">Pending</span></span>`;
   }
 
   renderMonthlyRoster = async function(){
@@ -3399,7 +3399,7 @@
     const holidayMap={};
     for(const h of holidays) holidayMap[h.holiday_date]=h;
 
-    const compactLegend=`${v17LegendItem('D','Day')}${v17LegendItem('N','Night')}${v17LegendItem('O','Off')}${v17LegendItem('R','Rest')}${v17LegendItem('VL','Leave VL')}${v17LegendItem('SL','Sick')}${v17LegendItem('ML','Maternity')}${v17LegendItem('ST','Study')}${v17LegendItem('ATI','TIL In')}${v17LegendItem('ATO','TIL Out')}${v17LegendItem('AOT','Overtime')}${v17LegendItem('CODON','COD on')}${v17LegendItem('CODOFF','COD off')}${v17PendingSample()}`;
+    const compactLegend=`${v17LegendItem('D','Day')}${v17LegendItem('N','Night')}${v17LegendItem('O','Off')}${v17LegendItem('R','Rest')}${v17LegendItem('VL','Leave')}${v17LegendItem('SL','Sick')}${v17LegendItem('ML','Maternity')}${v17LegendItem('ST','Study')}${v17LegendItem('ATI','TIL In')}${v17LegendItem('ATO','TIL Out')}${v17LegendItem('AOT','Overtime')}${v17LegendItem('CODON','COD on')}${v17LegendItem('CODOFF','COD off')}${v17PendingSample()}`;
 
     document.getElementById('content').innerHTML=`<div class="card roster-hero"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Monthly Roster</h2><h1>${escapeHtml(selectedW?.ward_name||'Surgical Ward 4')}</h1><div class="roster-month-focus">${escapeHtml(monthLabel(monthValue))}</div></div><div class="roster-nav">${wardSelectorHtml()}<div><label>Month</label><input type="month" value="${monthValue}" onchange="setSelectedMonth(this.value)"></div><div><label>Jump to date</label><input id="rosterJumpDate" type="date"></div><button class="secondary" type="button" onclick="jumpRosterDate()">Jump</button><button class="secondary" type="button" onclick="changeRosterMonth(-1)">← Prev</button><button class="secondary" type="button" onclick="goRosterToday()">Today</button><button class="secondary" type="button" onclick="changeRosterMonth(1)">Next →</button></div></div></div><div class="card"><div class="legend-compact sw4-clean-legend v17-legend">${compactLegend}</div></div><div class="card roster-table-card"><div class="table-wrap roster-table-wrap"><table class="roster-table"><thead><tr><th>Staff Member</th>${days.map(d=>{const key=isoFromDate(d),h=holidayMap[key];return `<th class="${h?'holiday-col':''} ${key===todayISO()?'today-col':''}"><div class="day-head"><span>${weekdayShort(d)}</span><span>${d.getDate()}</span>${h?`<span class="holiday-label" title="${escapeHtml(h.holiday_name)}">${escapeHtml(h.short_label||h.holiday_name)}</span>`:''}</div></th>`;}).join('')}</tr></thead><tbody>${grouped.map(staff=>`<tr><td><span class="staff-name-line">${escapeHtml(cleanStaffName(staff.full_name))}</span><span class="staff-role-line">${escapeHtml(labelRole(staff.role))}</span><span class="staff-shift-line">${escapeHtml(staffRosterLabel(staff))}</span></td>${days.map(day=>{const key=isoFromDate(day),r=staff.days[key],actualCode=r?.live_shift_code||'',baseDisplay=v17Code(actualCode),leaveRow=v17LeaveRow(leaveMap,staff.staff_id,key),displayCode=leaveOverlayDisplayCode(leaveMap,staff.staff_id,key,baseDisplay),cod=codMap[`${staff.staff_id}|${key}`],h=holidayMap[key],showDot=sw4ShouldShowChangeDot(r);return `<td class="${h?'holiday-col':''} ${key===todayISO()?'today-col':''}"><div class="sw4-roster-cell-stack">${shiftButton(staff.staff_id,key,displayCode,showDot,actualCode)}${v17HourMark(leaveRow)}${renderCodMark(cod)}</div></td>`;}).join('')}</tr>`).join('')||`<tr><td colspan="${days.length+1}" class="muted">No core roster rows found for this ward/month.</td></tr>`}</tbody></table></div></div>`;
     if(typeof sw4V16CleanHeader==='function') sw4V16CleanHeader();
@@ -3412,8 +3412,8 @@
   .v17-legend{gap:9px 10px!important;align-items:center!important;}
   .v17-legend-item{display:inline-flex!important;align-items:center!important;gap:4px!important;white-space:nowrap!important;}
   .v17-pending-explain .muted{font-weight:900!important;color:#b91c1c!important;}
-  .shift-VL{background:linear-gradient(135deg,#fff7cd 0%,#facc15 100%)!important;color:#713f12!important;border-color:#eab308!important;}
-  .shift-PVL{background:linear-gradient(135deg,#fff7cd 0%,#facc15 100%)!important;color:#713f12!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
+  .shift-VL{background:linear-gradient(135deg,#fce7f3 0%,#f472b6 100%)!important;color:#831843!important;border-color:#db2777!important;}
+  .shift-PVL{background:linear-gradient(135deg,#fce7f3 0%,#f472b6 100%)!important;color:#831843!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
   .shift-ATI{background:linear-gradient(135deg,#d1fae5 0%,#22c55e 100%)!important;color:#064e3b!important;border-color:#16a34a!important;}
   .shift-PTI{background:linear-gradient(135deg,#d1fae5 0%,#22c55e 100%)!important;color:#064e3b!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
   .shift-ATO{background:linear-gradient(135deg,#dbeafe 0%,#38bdf8 100%)!important;color:#0c4a6e!important;border-color:#0284c7!important;}
@@ -3431,6 +3431,37 @@
   .sw4-hour-mark{display:inline-flex;align-items:center;justify-content:center;min-width:20px;padding:1px 4px;border-radius:999px;background:#0f172a;color:#fff;font-size:8px;font-weight:950;line-height:1.1;letter-spacing:-.02em;}
   .roster-table td .sw4-hour-mark{margin-top:1px;}
   .roster-table .shift-cell{margin-inline:auto;}
+
+  /* SW4 v18 compact scale adjustments */
+  body{font-size:13px!important;}
+  header{min-height:54px!important;padding:8px 18px!important;}
+  .container{padding:62px 14px 18px 14px!important;}
+  .card{padding:12px 14px!important;border-radius:16px!important;}
+  .app-topbar{gap:8px!important;}
+  .tabs{gap:6px!important;}
+  .tabs button{padding:8px 10px!important;font-size:12px!important;border-radius:12px!important;}
+  .app-top-actions button,.roster-nav button,button.small{padding:7px 9px!important;font-size:12px!important;}
+  .top-user strong{font-size:24px!important;line-height:1.05!important;}
+  .top-user .role-inline{font-size:12px!important;}
+  .brand-title{font-size:18px!important;}
+  .roster-hero h2{font-size:14px!important;margin-bottom:2px!important;}
+  .roster-hero h1{font-size:24px!important;margin-bottom:0!important;}
+  .roster-month-focus{font-size:18px!important;padding:6px 12px!important;margin-top:6px!important;}
+  .legend-compact,.v17-legend{gap:6px 8px!important;font-size:11px!important;}
+  .legend-compact .shift-cell,.v17-legend .shift-cell{min-width:22px!important;height:20px!important;font-size:9px!important;border-radius:7px!important;}
+  .roster-table th:first-child,.roster-table td:first-child{width:150px!important;min-width:150px!important;max-width:150px!important;}
+  .roster-table th:not(:first-child),.roster-table td:not(:first-child){width:31px!important;min-width:31px!important;max-width:31px!important;padding:2px!important;}
+  .roster-table .shift-cell{min-width:24px!important;height:20px!important;font-size:9px!important;border-radius:7px!important;}
+  .staff-name-line{font-size:11px!important;}
+  .staff-role-line,.staff-shift-line{font-size:9px!important;}
+  .day-head span:first-child{font-size:8px!important;}
+  .day-head span:nth-child(2){font-size:10px!important;}
+  .sw4-hour-mark{font-size:7px!important;min-width:18px!important;padding:1px 3px!important;}
+  .cod-mark{font-size:6.5px!important;line-height:1!important;padding:1px 2px!important;border-radius:5px!important;}
+  .cod-mark small{display:none!important;}
+  .shift-modal{transform:scale(.95)!important;transform-origin:center center!important;}
+  .v18-pending-empty{background:#ffffff!important;color:transparent!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.22)!important;min-width:22px!important;}
+  .v18-pending-legend .muted{font-weight:900!important;color:#b91c1c!important;}
 </style>
 
 </body>
