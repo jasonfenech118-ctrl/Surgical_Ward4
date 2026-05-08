@@ -3221,164 +3221,112 @@
 </style>
 
 
-
 <script>
 /* =========================================================
-   SW4 v18 — compact scale + refined legend + hourly marks
-   - removes generic Pending Leave
-   - renames Leave VL to Leave and uses pink
-   - approved VL/TIL/OT/COD use distinct tones
-   - pending VL/TIL/OT/COD use bright red outline until approved
-   - hourly Leave/TIL/OT shows hours in monthly roster boxes
+   SW4 v17 — pending requests show the actual requested type
+   inside the Monthly Roster cell, and Night has a distinct colour.
+   HTML-only change. No SQL required.
    ========================================================= */
 (function(){
-  function v17Code(code){ return normaliseRosterCode(code||''); }
-  function v17Status(row){ return String(row?.status||'').toLowerCase(); }
-  function v17IsHourly(row){ return row && (row.is_hourly===true || row.is_hourly==='true' || row.is_hourly===1 || row.is_hourly==='1'); }
-  function v17HoursText(row){
-    if(!v17IsHourly(row)) return '';
-    const n=Number(row.hours||0);
-    if(!Number.isFinite(n) || n<=0) return '';
-    return `${Number.isInteger(n)?n:n.toFixed(1).replace(/\.0$/,'')}h`;
-  }
-  function v17LeaveRow(map, staffId, isoDate){ return map?.[`${staffId}|${isoDate}`] || null; }
-
+  const oldDisplayShiftCodeV17 = displayShiftCode;
   displayShiftCode = function(code){
-    const clean=v17Code(code);
-    const map={
-      VL:'VL', PVL:'VL',
-      ATI:'TI', PTI:'TI',
-      ATO:'TO', PTO:'TO',
-      AOT:'OT', POT:'OT',
-      CODON:'COD', PCODON:'COD',
-      CODOFF:'COD', PCODOFF:'COD'
+    const clean = normaliseRosterCode(code);
+    const map = {
+      PVL:'VL', PL:'VL', PSL:'SL', PML:'ML', PST:'ST', PTI:'TI', PTO:'TO', POT:'OT', PCODON:'COD', PCODOFF:'COD', PCOD:'COD',
+      CODON:'COD', CODOFF:'COD', APP:'VL', ATI:'TI', ATO:'TO', AOT:'OT'
     };
-    return map[clean] || clean || '—';
+    return map[clean] || oldDisplayShiftCodeV17(code);
   };
 
+  const oldShiftLabelV17 = shiftLabel;
   shiftLabel = function(code){
-    const clean=v17Code(code);
-    const labels={
-      D:'Day', N:'Night', O:'Off', R:'Rest',
-      VL:'Leave', PVL:'Pending Leave',
-      SL:'Sick Leave', ML:'Maternity', ST:'Study',
-      ATI:'Approved TIL In', PTI:'Pending TIL In',
-      ATO:'Approved TIL Out', PTO:'Pending TIL Out',
-      AOT:'Approved Overtime', POT:'Pending Overtime',
-      CODON:'Approved COD On', PCODON:'Pending COD On',
-      CODOFF:'Approved COD Off', PCODOFF:'Pending COD Off',
-      TI:'TIL In', TO:'TIL Out', OT:'Overtime',
-      M:'Morning', E:'Evening'
+    const clean = normaliseRosterCode(code);
+    const labels = {
+      PVL:'Pending Leave', PL:'Pending Leave', PSL:'Pending Sick Leave', PML:'Pending Maternity Leave', PST:'Pending Study Leave',
+      PTI:'Pending TIL In', PTO:'Pending TIL Out', POT:'Pending Overtime', PCODON:'Pending COD on', PCODOFF:'Pending COD off', PCOD:'Pending Change of Duty',
+      APP:'Approved Leave', ATI:'Approved TIL In', ATO:'Approved TIL Out', AOT:'Approved Overtime', CODON:'COD on', CODOFF:'COD off'
     };
-    return labels[clean] || clean || '';
+    return labels[clean] || oldShiftLabelV17(code);
   };
 
-  leaveOverlayDisplayCode = function(map, staffId, isoDate, fallbackCode){
-    const row=v17LeaveRow(map,staffId,isoDate);
+  function sw4PendingCodeForRequest(requestCode){
+    const req = normaliseRosterCode(requestCode || '');
+    if(req === 'TI') return 'PTI';
+    if(req === 'TO') return 'PTO';
+    if(req === 'OT') return 'POT';
+    if(req === 'SL') return 'PSL';
+    if(req === 'ML') return 'PML';
+    if(req === 'ST') return 'PST';
+    return 'PVL';
+  }
+
+  leaveOverlayDisplayCode = function(map,staffId,isoDate,fallbackCode){
+    const row = map?.[`${staffId}|${isoDate}`];
     if(!row) return fallbackCode;
-    const status=v17Status(row);
-    const req=v17Code(row.request_code||'');
-    if(status==='pending'){
-      if(req==='TI') return 'PTI';
-      if(req==='TO') return 'PTO';
-      if(req==='OT') return 'POT';
-      if(req==='L' || req==='VL' || req==='APP') return 'PVL';
-      if(req==='SL' || req==='ML' || req==='ST') return req;
-      return fallbackCode;
-    }
-    if(status==='approved'){
-      if(req==='TI') return 'ATI';
-      if(req==='TO') return 'ATO';
-      if(req==='OT') return 'AOT';
-      if(req==='L' || req==='VL' || req==='APP') return 'VL';
-      if(req==='SL' || req==='ML' || req==='ST') return req;
-      return fallbackCode;
+    const status = String(row.status || '').toLowerCase();
+    const req = normaliseRosterCode(row.request_code || '');
+    if(status === 'pending') return sw4PendingCodeForRequest(req);
+    if(status === 'approved'){
+      if(req === 'TI') return 'ATI';
+      if(req === 'TO') return 'ATO';
+      if(req === 'OT') return 'AOT';
+      if(req === 'SL') return 'SL';
+      if(req === 'ML') return 'ML';
+      if(req === 'ST') return 'ST';
+      return 'APP';
     }
     return fallbackCode;
   };
 
-  loadLeaveStatusMapForMonth = async function(start,end){
-    const out={};
-    try{
-      const res=await sb.rpc('get_sw4_leave_roster_statuses',{p_start_date:start,p_end_date:end});
-      if(res.error) throw res.error;
-      for(const row of (res.data||[])){
-        const key=`${row.staff_id}|${row.request_date}`;
-        const existing=out[key];
-        if(!existing){ out[key]=row; continue; }
-        // Prefer approved over pending, and prefer hourly if both have same status.
-        const eStatus=v17Status(existing), rStatus=v17Status(row);
-        if(eStatus!=='approved' && rStatus==='approved'){ out[key]=row; continue; }
-        if(eStatus===rStatus && v17IsHourly(row) && !v17IsHourly(existing)){ out[key]=row; continue; }
-      }
-    }catch(err){ console.warn('Leave overlay not loaded',err); }
-    return out;
-  };
-
-  async function v17LoadPendingCodRows(start,end){
-    const out=[];
-    const addRows=(rows)=>{ for(const row of (rows||[])) out.push(row); };
-    try{
-      if(typeof sw4IsFullControl==='function' && sw4IsFullControl()){
-        const res=await sw4RpcOrEmpty('list_sw4_change_of_duty',{p_start_date:start,p_end_date:end,p_status:null});
-        addRows(res);
-      }else{
-        const res=await sw4RpcOrEmpty('list_my_sw4_change_of_duty',{p_start_date:start,p_end_date:end,p_status:null});
-        addRows(res);
-      }
-    }catch(err){ console.warn('Pending COD not loaded',err); }
-    return out;
+  function sw4HoursText(row){
+    if(!row) return '';
+    const hourly = row.is_hourly === true || row.is_hourly === 'true' || Number(row.hours || 0) > 0;
+    const hours = Number(row.hours || 0);
+    if(!hourly || !hours) return '';
+    return `${hours % 1 === 0 ? hours.toFixed(0) : hours.toFixed(1)}h`;
+  }
+  function sw4HoursMark(row){
+    const text = sw4HoursText(row);
+    return text ? `<span class="sw4-hour-mark">${escapeHtml(text)}</span>` : '';
   }
 
-  loadCodMapForMonth = async function(start,end){
-    const out={};
-    try{
-      const approved=await sb.rpc('get_sw4_change_of_duty_roster_markings',{p_start_date:start,p_end_date:end});
-      if(approved.error) throw approved.error;
-      for(const row of (approved.data||[])) out[`${row.staff_id}|${row.cod_date}`]=row;
-    }catch(err){ console.warn('Approved COD markings not loaded',err); }
-
-    const pendingRows=await v17LoadPendingCodRows(start,end);
-    for(const row of pendingRows){
-      const status=v17Status(row);
-      if(!['pending','approved'].includes(status)) continue;
-      const off=String(row.off_date||''), worked=String(row.worked_date||'');
-      if(worked>=start && worked<=end){
-        const key=`${row.staff_id}|${worked}`;
-        if(!out[key] || status==='pending') out[key]={id:row.id,staff_id:row.staff_id,cod_date:worked,cod_kind:'on',vice_date:off,cod_type:row.cod_type,status,display_label:'COD on',tooltip:`COD on vice ${formatDate(off)}`};
+  async function sw4LoadCodStatusMapForMonth(start,end){
+    const out = {};
+    function addCod(row, statusOverride){
+      if(!row) return;
+      const staffId = row.staff_id;
+      const status = String(statusOverride || row.status || 'approved').toLowerCase();
+      if(staffId && row.worked_date){
+        out[`${staffId}|${String(row.worked_date).slice(0,10)}`] = {status, kind:'on', code: status === 'pending' ? 'PCODON' : 'CODON'};
       }
-      if(off>=start && off<=end){
-        const key=`${row.staff_id}|${off}`;
-        if(!out[key] || status==='pending') out[key]={id:row.id,staff_id:row.staff_id,cod_date:off,cod_kind:'off',vice_date:worked,cod_type:row.cod_type,status,display_label:'COD off',tooltip:`COD off vice ${formatDate(worked)}`};
+      if(staffId && row.off_date){
+        out[`${staffId}|${String(row.off_date).slice(0,10)}`] = {status, kind:'off', code: status === 'pending' ? 'PCODOFF' : 'CODOFF'};
+      }
+      if(staffId && row.cod_date){
+        const kind = String(row.cod_kind || row.kind || '').toLowerCase();
+        const code = status === 'pending' ? (kind === 'off' ? 'PCODOFF' : 'PCODON') : (kind === 'off' ? 'CODOFF' : 'CODON');
+        out[`${staffId}|${String(row.cod_date).slice(0,10)}`] = {status, kind, code};
       }
     }
+    try{
+      const approved = await sb.rpc('get_sw4_change_of_duty_roster_markings',{p_start_date:start,p_end_date:end});
+      if(!approved.error){
+        for(const row of (approved.data || [])) addCod(row,'approved');
+      }
+    }catch(err){ console.warn('COD approved markings not loaded',err); }
+    try{
+      const all = await sw4RpcOrEmpty('list_sw4_change_of_duty',{p_start_date:start,p_end_date:end,p_status:null});
+      for(const row of (all || [])) addCod(row,row.status);
+    }catch(err){ console.warn('COD manager list not loaded',err); }
+    try{
+      const mine = await sw4RpcOrEmpty('list_my_sw4_change_of_duty',{p_start_date:start,p_end_date:end,p_status:null});
+      for(const row of (mine || [])) addCod(row,row.status);
+    }catch(err){ console.warn('My COD list not loaded',err); }
     return out;
-  };
-
-  renderCodMark = function(row){
-    if(!row) return '';
-    const type=String(row.cod_kind||'').toLowerCase()==='on'?'on':'off';
-    const status=v17Status(row)==='pending'?'pending':'approved';
-    const cls=type==='on'?'cod-on':'cod-off';
-    const label=type==='on'?'COD on':'COD off';
-    const vice=row.vice_date?`vice ${formatDate(row.vice_date)}`:'';
-    return `<div class="cod-mark ${cls} ${status}" title="${escapeHtml(row.tooltip||`${label} ${vice}`)}">${label}<small>${escapeHtml(vice)}</small></div>`;
-  };
-
-  function v17HourMark(row){
-    const txt=v17HoursText(row);
-    if(!txt) return '';
-    const req=v17Code(row.request_code||'');
-    if(!['L','VL','TI','TO','OT'].includes(req)) return '';
-    const label=`${txt} ${requestCodeLabel(req)}`;
-    return `<span class="sw4-hour-mark" title="${escapeHtml(label)}">${escapeHtml(txt)}</span>`;
   }
 
-  function v17LegendItem(code,label,extraClass=''){
-    return `<span class="v17-legend-item ${extraClass}">${shiftBadge(code)} <span class="muted">${escapeHtml(label)}</span></span>`;
-  }
-  function v17PendingSample(){
-    return `<span class="v17-legend-item v18-pending-legend"><span class="shift-cell v18-pending-empty" aria-hidden="true"></span> <span class="muted">Pending</span></span>`;
+  function sw4LegendCompactV17(){
+    return `${legend('D','Day')}${legend('N','Night')}${legend('O','Off')}${legend('R','Rest')}${legend('PVL','Pending')}${legend('APP','Leave')}${legend('SL','Sick')}${legend('ML','Maternity')}${legend('ST','Study')}${legend('TI','TIL In')}${legend('TO','TIL Out')}${legend('OT','Overtime')}${legend('CODON','COD')}`;
   }
 
   renderMonthlyRoster = async function(){
@@ -3386,11 +3334,11 @@
     const monthValue=appState.selectedMonth;
     const {start,end,days}=monthRange(monthValue);
     const selectedW=selectedWard();
-    const [rosterResult,holidayResult,leaveMap,codMap]=await Promise.all([
+    const [rosterResult,holidayResult,leaveMap,codStatusMap]=await Promise.all([
       sb.rpc('get_my_ward_roster_between',{p_ward_id:wardId,p_start_date:start,p_end_date:end}),
       sb.rpc('get_malta_public_holidays',{p_start_date:start,p_end_date:end}),
       loadLeaveStatusMapForMonth(start,end),
-      loadCodMapForMonth(start,end)
+      sw4LoadCodStatusMapForMonth(start,end)
     ]);
     if(rosterResult.error) throw rosterResult.error;
     if(holidayResult.error) throw holidayResult.error;
@@ -3398,70 +3346,47 @@
     appState.monthlyRosterRows=grouped;
     const holidayMap={};
     for(const h of holidays) holidayMap[h.holiday_date]=h;
-
-    const compactLegend=`${v17LegendItem('D','Day')}${v17LegendItem('N','Night')}${v17LegendItem('O','Off')}${v17LegendItem('R','Rest')}${v17LegendItem('VL','Leave')}${v17LegendItem('SL','Sick')}${v17LegendItem('ML','Maternity')}${v17LegendItem('ST','Study')}${v17LegendItem('ATI','TIL In')}${v17LegendItem('ATO','TIL Out')}${v17LegendItem('AOT','Overtime')}${v17LegendItem('CODON','COD on')}${v17LegendItem('CODOFF','COD off')}${v17PendingSample()}`;
-
-    document.getElementById('content').innerHTML=`<div class="card roster-hero"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Monthly Roster</h2><h1>${escapeHtml(selectedW?.ward_name||'Surgical Ward 4')}</h1><div class="roster-month-focus">${escapeHtml(monthLabel(monthValue))}</div></div><div class="roster-nav">${wardSelectorHtml()}<div><label>Month</label><input type="month" value="${monthValue}" onchange="setSelectedMonth(this.value)"></div><div><label>Jump to date</label><input id="rosterJumpDate" type="date"></div><button class="secondary" type="button" onclick="jumpRosterDate()">Jump</button><button class="secondary" type="button" onclick="changeRosterMonth(-1)">← Prev</button><button class="secondary" type="button" onclick="goRosterToday()">Today</button><button class="secondary" type="button" onclick="changeRosterMonth(1)">Next →</button></div></div></div><div class="card"><div class="legend-compact sw4-clean-legend v17-legend">${compactLegend}</div></div><div class="card roster-table-card"><div class="table-wrap roster-table-wrap"><table class="roster-table"><thead><tr><th>Staff Member</th>${days.map(d=>{const key=isoFromDate(d),h=holidayMap[key];return `<th class="${h?'holiday-col':''} ${key===todayISO()?'today-col':''}"><div class="day-head"><span>${weekdayShort(d)}</span><span>${d.getDate()}</span>${h?`<span class="holiday-label" title="${escapeHtml(h.holiday_name)}">${escapeHtml(h.short_label||h.holiday_name)}</span>`:''}</div></th>`;}).join('')}</tr></thead><tbody>${grouped.map(staff=>`<tr><td><span class="staff-name-line">${escapeHtml(cleanStaffName(staff.full_name))}</span><span class="staff-role-line">${escapeHtml(labelRole(staff.role))}</span><span class="staff-shift-line">${escapeHtml(staffRosterLabel(staff))}</span></td>${days.map(day=>{const key=isoFromDate(day),r=staff.days[key],actualCode=r?.live_shift_code||'',baseDisplay=v17Code(actualCode),leaveRow=v17LeaveRow(leaveMap,staff.staff_id,key),displayCode=leaveOverlayDisplayCode(leaveMap,staff.staff_id,key,baseDisplay),cod=codMap[`${staff.staff_id}|${key}`],h=holidayMap[key],showDot=sw4ShouldShowChangeDot(r);return `<td class="${h?'holiday-col':''} ${key===todayISO()?'today-col':''}"><div class="sw4-roster-cell-stack">${shiftButton(staff.staff_id,key,displayCode,showDot,actualCode)}${v17HourMark(leaveRow)}${renderCodMark(cod)}</div></td>`;}).join('')}</tr>`).join('')||`<tr><td colspan="${days.length+1}" class="muted">No core roster rows found for this ward/month.</td></tr>`}</tbody></table></div></div>`;
-    if(typeof sw4V16CleanHeader==='function') sw4V16CleanHeader();
+    const compactLegend=sw4LegendCompactV17();
+    document.getElementById('content').innerHTML=`<div class="card roster-hero"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Monthly Roster</h2><h1>${escapeHtml(selectedW?.ward_name||'Surgical Ward 4')}</h1><div class="roster-month-focus">${escapeHtml(monthLabel(monthValue))}</div></div><div class="roster-nav">${wardSelectorHtml()}<div><label>Month</label><input type="month" value="${monthValue}" onchange="setSelectedMonth(this.value)"></div><div><label>Jump to date</label><input id="rosterJumpDate" type="date"></div><button class="secondary" type="button" onclick="jumpRosterDate()">Jump</button><button class="secondary" type="button" onclick="changeRosterMonth(-1)">← Prev</button><button class="secondary" type="button" onclick="goRosterToday()">Today</button><button class="secondary" type="button" onclick="changeRosterMonth(1)">Next →</button></div></div></div><div class="card"><div class="legend-compact sw4-clean-legend">${compactLegend}</div></div><div class="card roster-table-card"><div class="table-wrap roster-table-wrap"><table class="roster-table"><thead><tr><th>Staff Member</th>${days.map(d=>{const key=isoFromDate(d),h=holidayMap[key];return `<th class="${h?'holiday-col':''} ${key===todayISO()?'today-col':''}"><div class="day-head"><span>${weekdayShort(d)}</span><span>${d.getDate()}</span>${h?`<span class="holiday-label" title="${escapeHtml(h.holiday_name)}">${escapeHtml(h.short_label||h.holiday_name)}</span>`:''}</div></th>`;}).join('')}</tr></thead><tbody>${grouped.map(staff=>`<tr><td><span class="staff-name-line">${escapeHtml(cleanStaffName(staff.full_name))}</span><span class="staff-role-line">${escapeHtml(labelRole(staff.role))}</span><span class="staff-shift-line">${escapeHtml(staffRosterLabel(staff))}</span></td>${days.map(day=>{const key=isoFromDate(day),r=staff.days[key],actualCode=r?.live_shift_code||'',baseDisplay=normaliseRosterCode(actualCode),leaveRow=leaveMap?.[`${staff.staff_id}|${key}`],codRow=codStatusMap?.[`${staff.staff_id}|${key}`],displayCode=codRow?.code || leaveOverlayDisplayCode(leaveMap,staff.staff_id,key,baseDisplay),h=holidayMap[key],showDot=sw4ShouldShowChangeDot(r);return `<td class="${h?'holiday-col':''} ${key===todayISO()?'today-col':''}">${shiftButton(staff.staff_id,key,displayCode,showDot,actualCode)}${sw4HoursMark(leaveRow)}</td>`;}).join('')}</tr>`).join('')||`<tr><td colspan="${days.length+1}" class="muted">No core roster rows found for this ward/month.</td></tr>`}</tbody></table></div></div>`;
+    if(typeof sw4V16CleanHeader === 'function') sw4V16CleanHeader();
   };
 })();
 </script>
-
 <style>
-  /* SW4 v17 compact legend/status colours */
-  .v17-legend{gap:9px 10px!important;align-items:center!important;}
-  .v17-legend-item{display:inline-flex!important;align-items:center!important;gap:4px!important;white-space:nowrap!important;}
-  .v17-pending-explain .muted{font-weight:900!important;color:#b91c1c!important;}
-  .shift-VL{background:linear-gradient(135deg,#fce7f3 0%,#f472b6 100%)!important;color:#831843!important;border-color:#db2777!important;}
-  .shift-PVL{background:linear-gradient(135deg,#fce7f3 0%,#f472b6 100%)!important;color:#831843!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
-  .shift-ATI{background:linear-gradient(135deg,#d1fae5 0%,#22c55e 100%)!important;color:#064e3b!important;border-color:#16a34a!important;}
-  .shift-PTI{background:linear-gradient(135deg,#d1fae5 0%,#22c55e 100%)!important;color:#064e3b!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
-  .shift-ATO{background:linear-gradient(135deg,#dbeafe 0%,#38bdf8 100%)!important;color:#0c4a6e!important;border-color:#0284c7!important;}
-  .shift-PTO{background:linear-gradient(135deg,#dbeafe 0%,#38bdf8 100%)!important;color:#0c4a6e!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
-  .shift-AOT{background:linear-gradient(135deg,#ede9fe 0%,#a78bfa 100%)!important;color:#3b0764!important;border-color:#7c3aed!important;}
-  .shift-POT{background:linear-gradient(135deg,#ede9fe 0%,#a78bfa 100%)!important;color:#3b0764!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
-  .shift-CODON{background:linear-gradient(135deg,#ffedd5 0%,#fb923c 100%)!important;color:#7c2d12!important;border-color:#f97316!important;}
-  .shift-PCODON{background:linear-gradient(135deg,#ffedd5 0%,#fb923c 100%)!important;color:#7c2d12!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
-  .shift-CODOFF{background:linear-gradient(135deg,#e0e7ff 0%,#818cf8 100%)!important;color:#312e81!important;border-color:#6366f1!important;}
-  .shift-PCODOFF{background:linear-gradient(135deg,#e0e7ff 0%,#818cf8 100%)!important;color:#312e81!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.20)!important;}
-  .cod-mark.cod-on{background:linear-gradient(135deg,#ffedd5,#fed7aa)!important;color:#7c2d12!important;border:1px solid #fb923c!important;}
-  .cod-mark.cod-off{background:linear-gradient(135deg,#e0e7ff,#c7d2fe)!important;color:#312e81!important;border:1px solid #818cf8!important;}
-  .cod-mark.pending{border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.22)!important;}
-  .sw4-roster-cell-stack{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;min-height:24px;}
-  .sw4-hour-mark{display:inline-flex;align-items:center;justify-content:center;min-width:20px;padding:1px 4px;border-radius:999px;background:#0f172a;color:#fff;font-size:8px;font-weight:950;line-height:1.1;letter-spacing:-.02em;}
-  .roster-table td .sw4-hour-mark{margin-top:1px;}
-  .roster-table .shift-cell{margin-inline:auto;}
-
-  /* SW4 v18 compact scale adjustments */
-  body{font-size:13px!important;}
-  header{min-height:54px!important;padding:8px 18px!important;}
-  .container{padding:62px 14px 18px 14px!important;}
-  .card{padding:12px 14px!important;border-radius:16px!important;}
-  .app-topbar{gap:8px!important;}
-  .tabs{gap:6px!important;}
-  .tabs button{padding:8px 10px!important;font-size:12px!important;border-radius:12px!important;}
-  .app-top-actions button,.roster-nav button,button.small{padding:7px 9px!important;font-size:12px!important;}
-  .top-user strong{font-size:24px!important;line-height:1.05!important;}
-  .top-user .role-inline{font-size:12px!important;}
-  .brand-title{font-size:18px!important;}
-  .roster-hero h2{font-size:14px!important;margin-bottom:2px!important;}
-  .roster-hero h1{font-size:24px!important;margin-bottom:0!important;}
-  .roster-month-focus{font-size:18px!important;padding:6px 12px!important;margin-top:6px!important;}
-  .legend-compact,.v17-legend{gap:6px 8px!important;font-size:11px!important;}
-  .legend-compact .shift-cell,.v17-legend .shift-cell{min-width:22px!important;height:20px!important;font-size:9px!important;border-radius:7px!important;}
-  .roster-table th:first-child,.roster-table td:first-child{width:150px!important;min-width:150px!important;max-width:150px!important;}
-  .roster-table th:not(:first-child),.roster-table td:not(:first-child){width:31px!important;min-width:31px!important;max-width:31px!important;padding:2px!important;}
-  .roster-table .shift-cell{min-width:24px!important;height:20px!important;font-size:9px!important;border-radius:7px!important;}
-  .staff-name-line{font-size:11px!important;}
-  .staff-role-line,.staff-shift-line{font-size:9px!important;}
-  .day-head span:first-child{font-size:8px!important;}
-  .day-head span:nth-child(2){font-size:10px!important;}
-  .sw4-hour-mark{font-size:7px!important;min-width:18px!important;padding:1px 3px!important;}
-  .cod-mark{font-size:6.5px!important;line-height:1!important;padding:1px 2px!important;border-radius:5px!important;}
-  .cod-mark small{display:none!important;}
-  .shift-modal{transform:scale(.95)!important;transform-origin:center center!important;}
-  .v18-pending-empty{background:#ffffff!important;color:transparent!important;border:2px solid #ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.22)!important;min-width:22px!important;}
-  .v18-pending-legend .muted{font-weight:900!important;color:#b91c1c!important;}
+  /* Night is now deliberately different from Day: deep purple, white text. */
+  .shift-N{
+    background:#6d28d9!important;
+    color:#ffffff!important;
+    border-color:#4c1d95!important;
+    box-shadow:0 1px 0 rgba(76,29,149,.25)!important;
+  }
+  /* Pending requests keep the real code inside the box, with a red pending outline. */
+  .shift-PVL,.shift-PL,.shift-PSL,.shift-PML,.shift-PST,.shift-PTI,.shift-PTO,.shift-POT,.shift-PCODON,.shift-PCODOFF,.shift-PCOD{
+    background:#fff7f7!important;
+    color:#991b1b!important;
+    border:2px solid #ef4444!important;
+    box-shadow:0 0 0 2px rgba(239,68,68,.12)!important;
+  }
+  .shift-POT{background:#fff4ed!important;color:#9a3412!important;border-color:#f97316!important;}
+  .shift-PTI,.shift-PTO{background:#fefce8!important;color:#854d0e!important;border-color:#eab308!important;}
+  .shift-PCODON,.shift-PCODOFF,.shift-PCOD{background:#fff1f2!important;color:#9f1239!important;border-color:#e11d48!important;}
+  .shift-APP{background:#f9a8d4!important;color:#831843!important;border-color:#f472b6!important;}
+  .shift-ATI{background:#99f6e4!important;color:#115e59!important;border-color:#2dd4bf!important;}
+  .shift-ATO{background:#bfdbfe!important;color:#1e3a8a!important;border-color:#60a5fa!important;}
+  .shift-AOT{background:#fed7aa!important;color:#9a3412!important;border-color:#fb923c!important;}
+  .sw4-hour-mark{
+    display:block!important;
+    width:max-content!important;
+    margin:2px auto 0!important;
+    padding:1px 4px!important;
+    border-radius:6px!important;
+    font-size:8px!important;
+    line-height:1!important;
+    font-weight:900!important;
+    color:#334155!important;
+    background:#f8fafc!important;
+    border:1px solid #cbd5e1!important;
+  }
 </style>
 
 </body>
