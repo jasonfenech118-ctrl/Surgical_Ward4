@@ -2720,5 +2720,47 @@
   })();
 </script>
 
+
+<script>
+  /* =========================================================
+     SW4 v13 — Svetlana full-control auto-approval UI messages.
+     Database v13 performs the approval; this keeps staff-facing messages clear.
+     ========================================================= */
+  (function(){
+    const oldSaveHourlyLeaveFromModalV13 = saveHourlyLeaveFromModal;
+    saveHourlyLeaveFromModal = async function(){
+      if(!shiftPickerState || !sw4IsFullControl()){
+        return oldSaveHourlyLeaveFromModalV13();
+      }
+      const state=shiftPickerState;
+      const staff=state.staff||findMonthlyStaff(state.staffId);
+      if(!currentUserMatchesStaffRow(staff)&&!isLeaveApprover()){
+        showError("Hourly requests can only be booked for your own row.");
+        return;
+      }
+      const requestCode=normaliseRosterCode(document.getElementById("shiftPickerHourlyType")?.value||"L");
+      const startTime=document.getElementById("shiftPickerHourlyStart")?.value||"07:00";
+      const hours=Number(document.getElementById("shiftPickerHourlyHours")?.value||1);
+      const notes=document.getElementById("shiftPickerHourlyNotes")?.value?.trim()||null;
+      const {error}=await sb.rpc("submit_sw4_leave_request",{p_request_date:state.shiftDate,p_request_code:requestCode,p_is_hourly:true,p_start_time:startTime,p_hours:hours,p_staff_note:notes});
+      if(error){showError(error.message);return;}
+      closeShiftPickerModal();
+      showSuccess(`${requestCodeLabel(requestCode)} hourly record approved automatically for Svetlana.`);
+      if(appState.activeTab==="leaveTil")await renderLeaveTil();
+    };
+
+    const oldRenderLeaveTilV13 = renderLeaveTil;
+    renderLeaveTil = async function(){
+      await oldRenderLeaveTilV13();
+      if(sw4IsFullControl()){
+        const firstCard=document.querySelector('#content .card .muted');
+        if(firstCard && firstCard.textContent.includes('Requests go to Svetlana')){
+          firstCard.textContent='Normal staff requests go to Svetlana for approval. Svetlana’s own leave, TIL, overtime and Change of Duty records are approved automatically.';
+        }
+      }
+    };
+  })();
+</script>
+
 </body>
 </html>
