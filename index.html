@@ -1868,5 +1868,297 @@
 </script>
 
 <!-- SW4 v7: Leave, TIL & OT tab visible to all staff. -->
+
+
+<style>
+  /* =========================================================
+     SW4 v8 — clean compact legend + red dots only for true changes
+     ========================================================= */
+  .legend-compact{
+    gap:8px 11px!important;
+    align-items:center!important;
+    flex-wrap:wrap!important;
+    padding:2px 0!important;
+  }
+  .legend-compact > span{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:4px!important;
+    font-size:12px!important;
+    font-weight:850!important;
+    white-space:nowrap!important;
+  }
+  .legend-compact .muted{
+    color:#475569!important;
+    font-weight:800!important;
+  }
+  .legend-compact .shift-cell{
+    min-width:28px!important;
+    width:auto!important;
+    height:24px!important;
+    padding:0 7px!important;
+    border-radius:7px!important;
+    font-size:10px!important;
+    box-shadow:0 1px 4px rgba(15,23,42,.12)!important;
+  }
+
+  /* Make generic leave no longer grey. If an approved leave/TIL/OT request overlays the roster,
+     it shows as the green Approved badge instead. */
+  .shift-L,.shift-AL{
+    background:#22c55e!important;
+    color:#ffffff!important;
+    border-color:#16a34a!important;
+  }
+  .shift-APP,.shift-ALV{
+    background:#16a34a!important;
+    color:#ffffff!important;
+    border-color:#15803d!important;
+  }
+  .shift-PL{
+    background:#facc15!important;
+    color:#533f03!important;
+    border-color:#eab308!important;
+  }
+  .shift-TI{
+    background:#0d9488!important;
+    color:#ffffff!important;
+    border-color:#0f766e!important;
+  }
+  .shift-TO{
+    background:#0369a1!important;
+    color:#ffffff!important;
+    border-color:#075985!important;
+  }
+  .override-dot{
+    background:#dc2626!important;
+  }
+</style>
+
+<script>
+  /* =========================================================
+     SW4 v8 — final corrections requested:
+     1) remove useless grey Leave from legend,
+     2) approved requests are green, including TIL/OT requests,
+     3) red dot only when the live roster value is truly changed from baseline.
+     ========================================================= */
+
+  displayShiftCode = function(code){
+    const clean=normaliseRosterCode(code);
+    if(clean==="APP")return"A";
+    if(clean==="CODON")return"COD";
+    if(clean==="CODOFF")return"COD";
+    return clean||"—";
+  };
+
+  shiftLabel = function(code){
+    const labels={
+      D:"Day",N:"Night",O:"Off",R:"Rest",
+      L:"Leave",AL:"Leave",
+      SL:"Sick Leave",ML:"Maternity",ST:"Study",
+      TI:"TIL In",TO:"TIL Out",OT:"Overtime",
+      VL:"Vacation Leave",PL:"Pending request",APP:"Approved request",ALV:"Approved request",
+      CODON:"COD On",CODOFF:"COD Off",M:"Morning",E:"Evening"
+    };
+    const clean=normaliseRosterCode(code);
+    return labels[clean]||clean||"";
+  };
+
+  function sw4ShouldShowChangeDot(row){
+    if(!row)return false;
+    const live=normaliseRosterCode(row.live_shift_code||"");
+    const baseline=normaliseRosterCode(row.baseline_shift_code||"");
+    const source=String(row.source_type||"").toLowerCase();
+    const reason=String(row.override_reason||"").toLowerCase();
+
+    if(!live)return false;
+    if(baseline && live!==baseline)return true;
+    if(source==="override" && baseline && live!==baseline)return true;
+    if(reason.includes("cod") || reason.includes("change of duty"))return true;
+    if(reason.includes("manual") && baseline && live!==baseline)return true;
+    return false;
+  }
+
+  renderMonthlyRoster = async function(){
+    const wardId=requireSelectedWard();
+    const monthValue=appState.selectedMonth;
+    const {start,end,days}=monthRange(monthValue);
+    const selectedW=selectedWard();
+    const [rosterResult,holidayResult,leaveMap,codMap]=await Promise.all([
+      sb.rpc("get_my_ward_roster_between",{p_ward_id:wardId,p_start_date:start,p_end_date:end}),
+      sb.rpc("get_malta_public_holidays",{p_start_date:start,p_end_date:end}),
+      loadLeaveStatusMapForMonth(start,end),
+      loadCodMapForMonth(start,end)
+    ]);
+    if(rosterResult.error)throw rosterResult.error;
+    if(holidayResult.error)throw holidayResult.error;
+
+    const grouped=groupRosterByStaff(rosterResult.data||[]),holidays=holidayResult.data||[];
+    appState.monthlyRosterRows=grouped;
+    const holidayMap={};
+    for(const h of holidays)holidayMap[h.holiday_date]=h;
+
+    const compactLegend=`${legend("D","Day")}${legend("N","Night")}${legend("O","Off")}${legend("R","Rest")}${legend("PL","Pending")}${legend("APP","Approved")}${legend("SL","Sick")}${legend("ML","Maternity")}${legend("ST","Study")}${legend("TI","TIL In")}${legend("TO","TIL Out")}${legend("OT","Overtime")}${legend("CODON","COD on")}${legend("CODOFF","COD off")}`;
+
+    document.getElementById("content").innerHTML=`<div class="card roster-hero"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Monthly Roster</h2><h1>${escapeHtml(selectedW?.ward_name||"Surgical Ward 4")}</h1><p class="muted">${escapeHtml(selectedW?.ward_code||"SW4")} · ${escapeHtml(monthLabel(monthValue))} · Staff can click only their own cells to request leave, TIL or overtime.</p></div><div class="roster-nav">${wardSelectorHtml()}<div><label>Month</label><input type="month" value="${monthValue}" onchange="setSelectedMonth(this.value)"></div><div><label>Jump to date</label><input id="rosterJumpDate" type="date"></div><button class="secondary" type="button" onclick="jumpRosterDate()">Jump</button><button class="secondary" type="button" onclick="changeRosterMonth(-1)">← Prev</button><button class="secondary" type="button" onclick="goRosterToday()">Today</button><button class="secondary" type="button" onclick="changeRosterMonth(1)">Next →</button></div></div></div><div class="card"><div class="legend-compact">${compactLegend}</div></div><div class="card roster-table-card"><div class="table-wrap roster-table-wrap"><table class="roster-table"><thead><tr><th>Staff Member</th>${days.map(d=>{const key=isoFromDate(d),h=holidayMap[key];return `<th class="${h?"holiday-col":""} ${key===todayISO()?"today-col":""}"><div class="day-head"><span>${weekdayShort(d)}</span><span>${d.getDate()}</span>${h?`<span class="holiday-label" title="${escapeHtml(h.holiday_name)}">${escapeHtml(h.short_label||h.holiday_name)}</span>`:""}</div></th>`;}).join("")}</tr></thead><tbody>${grouped.map(staff=>`<tr><td><span class="staff-name-line">${escapeHtml(cleanStaffName(staff.full_name))}</span><span class="staff-role-line">${escapeHtml(labelRole(staff.role))}</span><span class="staff-shift-line">${escapeHtml(staffRosterLabel(staff))}</span></td>${days.map(day=>{const key=isoFromDate(day),r=staff.days[key],actualCode=r?.live_shift_code||"",baseDisplay=normaliseRosterCode(actualCode),displayCode=leaveOverlayDisplayCode(leaveMap,staff.staff_id,key,baseDisplay),cod=codMap[`${staff.staff_id}|${key}`],h=holidayMap[key],showDot=sw4ShouldShowChangeDot(r);return `<td class="${h?"holiday-col":""} ${key===todayISO()?"today-col":""}">${shiftButton(staff.staff_id,key,displayCode,showDot,actualCode)}${renderCodMark(cod)}</td>`;}).join("")}</tr>`).join("")||`<tr><td colspan="${days.length+1}" class="muted">No core roster rows found for this ward/month.</td></tr>`}</tbody></table></div></div>`;
+  };
+</script>
+
+
+<style>
+  /* =========================================================
+     SW4 v9 — cleaner monthly roster header and compact approved-status legend
+     ========================================================= */
+  .roster-month-focus{
+    display:inline-flex!important;
+    align-items:center!important;
+    margin-top:4px!important;
+    padding:6px 12px!important;
+    border-radius:12px!important;
+    background:#eef6ff!important;
+    border:1px solid #c7ddf3!important;
+    color:#14324f!important;
+    font-size:22px!important;
+    line-height:1.1!important;
+    font-weight:950!important;
+    letter-spacing:-.03em!important;
+    box-shadow:0 2px 8px rgba(15,23,42,.05)!important;
+  }
+  .legend-compact.sw4-clean-legend{
+    gap:8px 10px!important;
+  }
+  .legend-compact.sw4-clean-legend > span{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:4px!important;
+    font-size:11.5px!important;
+    font-weight:850!important;
+    white-space:nowrap!important;
+  }
+  .legend-compact.sw4-clean-legend .shift-cell{
+    min-width:26px!important;
+    height:23px!important;
+    padding:0 7px!important;
+    font-size:10px!important;
+    border-radius:7px!important;
+  }
+
+  /* Approved leave/TIL/OT display in green, while still showing the right code. */
+  .shift-APP,
+  .shift-ALV,
+  .shift-ATI,
+  .shift-ATO,
+  .shift-AOT{
+    background:#16a34a!important;
+    color:#ffffff!important;
+    border-color:#15803d!important;
+  }
+
+  .shift-PL{
+    background:#facc15!important;
+    color:#533f03!important;
+    border-color:#eab308!important;
+  }
+
+  .cod-mark{
+    font-size:8px!important;
+    line-height:1.05!important;
+    padding:2px 3px!important;
+    border-radius:6px!important;
+    margin-top:2px!important;
+    display:inline-flex!important;
+    max-width:100%!important;
+    white-space:normal!important;
+    justify-content:center!important;
+  }
+</style>
+
+<script>
+  /* =========================================================
+     SW4 v9 final corrections:
+     - remove the long instruction sentence under Surgical Ward 4
+     - show only the month as a prominent label
+     - remove useless grey Leave from the legend
+     - approved TIL/OT stay green but keep their TI/TO/OT code
+     - red dots only show when live roster differs from baseline
+     ========================================================= */
+
+  displayShiftCode = function(code){
+    const clean=normaliseRosterCode(code);
+    if(clean==="APP")return"A";
+    if(clean==="ATI")return"TI";
+    if(clean==="ATO")return"TO";
+    if(clean==="AOT")return"OT";
+    if(clean==="CODON")return"COD";
+    if(clean==="CODOFF")return"COD";
+    return clean||"—";
+  };
+
+  shiftLabel = function(code){
+    const labels={
+      D:"Day",N:"Night",O:"Off",R:"Rest",
+      SL:"Sick Leave",ML:"Maternity",ST:"Study",
+      TI:"TIL In",TO:"TIL Out",OT:"Overtime",
+      PL:"Pending request",APP:"Approved leave",ATI:"Approved TIL In",ATO:"Approved TIL Out",AOT:"Approved overtime",
+      CODON:"COD On",CODOFF:"COD Off",M:"Morning",E:"Evening"
+    };
+    const clean=normaliseRosterCode(code);
+    return labels[clean]||clean||"";
+  };
+
+  leaveOverlayDisplayCode = function(map,staffId,isoDate,fallbackCode){
+    const row=map?.[`${staffId}|${isoDate}`];
+    if(!row)return fallbackCode;
+    const status=String(row.status||"").toLowerCase();
+    const req=normaliseRosterCode(row.request_code||"");
+    if(status==="pending")return"PL";
+    if(status==="approved"){
+      if(req==="TI")return"ATI";
+      if(req==="TO")return"ATO";
+      if(req==="OT")return"AOT";
+      if(req==="SL")return"SL";
+      if(req==="ML")return"ML";
+      if(req==="ST")return"ST";
+      return"APP";
+    }
+    return fallbackCode;
+  };
+
+  function sw4ShouldShowChangeDot(row){
+    if(!row)return false;
+    const live=normaliseRosterCode(row.live_shift_code||"");
+    const baseline=normaliseRosterCode(row.baseline_shift_code||"");
+    const reason=String(row.override_reason||"").toLowerCase();
+
+    if(!live || !baseline)return false;
+    if(live!==baseline)return true;
+    if((reason.includes("cod") || reason.includes("change of duty")) && live!==baseline)return true;
+    return false;
+  }
+
+  renderMonthlyRoster = async function(){
+    const wardId=requireSelectedWard();
+    const monthValue=appState.selectedMonth;
+    const {start,end,days}=monthRange(monthValue);
+    const selectedW=selectedWard();
+    const [rosterResult,holidayResult,leaveMap,codMap]=await Promise.all([
+      sb.rpc("get_my_ward_roster_between",{p_ward_id:wardId,p_start_date:start,p_end_date:end}),
+      sb.rpc("get_malta_public_holidays",{p_start_date:start,p_end_date:end}),
+      loadLeaveStatusMapForMonth(start,end),
+      loadCodMapForMonth(start,end)
+    ]);
+    if(rosterResult.error)throw rosterResult.error;
+    if(holidayResult.error)throw holidayResult.error;
+
+    const grouped=groupRosterByStaff(rosterResult.data||[]),holidays=holidayResult.data||[];
+    appState.monthlyRosterRows=grouped;
+    const holidayMap={};
+    for(const h of holidays)holidayMap[h.holiday_date]=h;
+
+    const compactLegend=`${legend("D","Day")}${legend("N","Night")}${legend("O","Off")}${legend("R","Rest")}${legend("PL","Pending")}${legend("APP","Approved")}${legend("SL","Sick")}${legend("ML","Maternity")}${legend("ST","Study")}${legend("TI","TIL In")}${legend("TO","TIL Out")}${legend("OT","Overtime")}${legend("CODON","COD on")}${legend("CODOFF","COD off")}`;
+
+    document.getElementById("content").innerHTML=`<div class="card roster-hero"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Monthly Roster</h2><h1>${escapeHtml(selectedW?.ward_name||"Surgical Ward 4")}</h1><div class="roster-month-focus">${escapeHtml(monthLabel(monthValue))}</div></div><div class="roster-nav">${wardSelectorHtml()}<div><label>Month</label><input type="month" value="${monthValue}" onchange="setSelectedMonth(this.value)"></div><div><label>Jump to date</label><input id="rosterJumpDate" type="date"></div><button class="secondary" type="button" onclick="jumpRosterDate()">Jump</button><button class="secondary" type="button" onclick="changeRosterMonth(-1)">← Prev</button><button class="secondary" type="button" onclick="goRosterToday()">Today</button><button class="secondary" type="button" onclick="changeRosterMonth(1)">Next →</button></div></div></div><div class="card"><div class="legend-compact sw4-clean-legend">${compactLegend}</div></div><div class="card roster-table-card"><div class="table-wrap roster-table-wrap"><table class="roster-table"><thead><tr><th>Staff Member</th>${days.map(d=>{const key=isoFromDate(d),h=holidayMap[key];return `<th class="${h?"holiday-col":""} ${key===todayISO()?"today-col":""}"><div class="day-head"><span>${weekdayShort(d)}</span><span>${d.getDate()}</span>${h?`<span class="holiday-label" title="${escapeHtml(h.holiday_name)}">${escapeHtml(h.short_label||h.holiday_name)}</span>`:""}</div></th>`;}).join("")}</tr></thead><tbody>${grouped.map(staff=>`<tr><td><span class="staff-name-line">${escapeHtml(cleanStaffName(staff.full_name))}</span><span class="staff-role-line">${escapeHtml(labelRole(staff.role))}</span><span class="staff-shift-line">${escapeHtml(staffRosterLabel(staff))}</span></td>${days.map(day=>{const key=isoFromDate(day),r=staff.days[key],actualCode=r?.live_shift_code||"",baseDisplay=normaliseRosterCode(actualCode),displayCode=leaveOverlayDisplayCode(leaveMap,staff.staff_id,key,baseDisplay),cod=codMap[`${staff.staff_id}|${key}`],h=holidayMap[key],showDot=sw4ShouldShowChangeDot(r);return `<td class="${h?"holiday-col":""} ${key===todayISO()?"today-col":""}">${shiftButton(staff.staff_id,key,displayCode,showDot,actualCode)}${renderCodMark(cod)}</td>`;}).join("")}</tr>`).join("")||`<tr><td colspan="${days.length+1}" class="muted">No core roster rows found for this ward/month.</td></tr>`}</tbody></table></div></div>`;
+  };
+</script>
+
 </body>
 </html>
