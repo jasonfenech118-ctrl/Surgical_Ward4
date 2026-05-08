@@ -2281,5 +2281,444 @@
   };
 </script>
 
+
+
+<style>
+  /* SW4 v11 — official roster-code selector display */
+  .sw4-roster-code-help{font-size:11px;color:#667085;margin-top:5px;font-weight:700;line-height:1.35}
+  .roster-table td:first-child .staff-shift-line,
+  td .sw4-roster-code-inline{font-size:11px!important;font-weight:950!important;color:#0f766e!important;letter-spacing:.02em!important}
+</style>
+
+<script>
+  /* =========================================================
+     SW4 v11 — Shift selector restructure
+     Official user-defined roster codes for Staff Management.
+     This updates the dropdown list and the roster code displayed
+     on the Monthly Roster / Staff Management tables.
+     ========================================================= */
+  (function(){
+    const SW4_ROSTER_PATTERN_OPTIONS = [
+      { code:"AAOO",  label:"AAOO — Day, Day, Off, Off", description:"Example: Svetlana Fenech pattern" },
+      { code:"DDNOO", label:"DDNOO — Day, Day, Night, Rest/Off", description:"Example: Clayton Turner pattern" },
+      { code:"DDDOO", label:"DDDOO — Day, Day, Day, Off, Off", description:"Example: Noel Spiteri pattern" },
+      { code:"AAOAO", label:"AAOAO — Day, Day, Off, Day, Off", description:"Example: Paul Savona pattern" },
+      { code:"DNNOO", label:"DNNOO — Day, Night, Night, Rest/Off", description:"Example: Jessy Varghese pattern" }
+    ];
+
+    const SW4_KNOWN_STAFF_PATTERN = {
+      "svetlana fenech":"AAOO",
+      "clayton turner":"DDNOO",
+      "noel spiteri":"DDDOO",
+      "spiteri":"DDDOO",
+      "paul savona":"AAOAO",
+      "jessy varghese":"DNNOO",
+      "jesse vargas":"DNNOO"
+    };
+
+    function sw4CleanPatternCode(value){
+      const raw=String(value||"").trim().toUpperCase().replace(/[^ADNO]/g,"");
+      const allowed=new Set(SW4_ROSTER_PATTERN_OPTIONS.map(x=>x.code));
+      return allowed.has(raw)?raw:"";
+    }
+
+    function sw4PatternFromStaffName(staff){
+      const name=cleanStaffName(staff?.full_name||staff?.staff_full_name||staff?.name||"").toLowerCase();
+      if(SW4_KNOWN_STAFF_PATTERN[name]) return SW4_KNOWN_STAFF_PATTERN[name];
+      for(const key of Object.keys(SW4_KNOWN_STAFF_PATTERN)){
+        if(name && name.includes(key)) return SW4_KNOWN_STAFF_PATTERN[key];
+      }
+      return "";
+    }
+
+    function sw4PatternFromStaff(staff){
+      if(!staff) return "";
+      const fields=[
+        staff.roster_pattern_code,
+        staff.pattern_code,
+        staff.shift_code,
+        staff.roster_code,
+        staff.roster_name,
+        staff.roster_group,
+        staff.shift,
+        staff.shift_pattern
+      ];
+      for(const field of fields){
+        const code=sw4CleanPatternCode(field);
+        if(code) return code;
+      }
+      return sw4PatternFromStaffName(staff);
+    }
+
+    window.SW4_ROSTER_PATTERN_OPTIONS = SW4_ROSTER_PATTERN_OPTIONS;
+
+    window.rosterPatterns = function(){
+      return SW4_ROSTER_PATTERN_OPTIONS.map(p=>({
+        pattern_code:p.code,
+        pattern_name:p.label,
+        description:p.description
+      }));
+    };
+
+    window.patternCode = function(p){
+      return sw4CleanPatternCode(p?.pattern_code||p?.code||p)||String(p?.pattern_code||p?.code||"").toUpperCase();
+    };
+
+    window.patternLabel = function(p){
+      const code=sw4CleanPatternCode(p?.pattern_code||p?.code||p);
+      const match=SW4_ROSTER_PATTERN_OPTIONS.find(x=>x.code===code);
+      return match?match.label:(code||String(p?.pattern_name||p?.name||p||""));
+    };
+
+    window.rosterAssignmentSelectHtml = function(id, selected=""){
+      const parsed=parseRosterAssignment(selected||"");
+      let selectedCode=sw4CleanPatternCode(parsed.code||selected);
+      const options=SW4_ROSTER_PATTERN_OPTIONS.map(p=>
+        `<option value="pattern:${escapeHtml(p.code)}" ${p.code===selectedCode?"selected":""}>${escapeHtml(p.label)}</option>`
+      ).join("");
+      return `<select id="${escapeHtml(id)}"><option value="">Select shift code...</option>${options}</select><div class="sw4-roster-code-help">Use the official SW4 codes: AAOO, DDNOO, DDDOO, AAOAO, DNNOO.</div>`;
+    };
+
+    window.rosterAssignmentValueFromStaff = function(staff){
+      const code=sw4PatternFromStaff(staff);
+      return code?`pattern:${code}`:"";
+    };
+
+    window.staffRosterLabel = function(staff){
+      const code=sw4PatternFromStaff(staff);
+      if(code) return code;
+      if(staff?.roster_pattern_code) return String(staff.roster_pattern_code).toUpperCase();
+      if(staff?.pattern_code) return String(staff.pattern_code).toUpperCase();
+      if(staff?.roster_name) return staff.roster_name;
+      if(staff?.roster_code) return String(staff.roster_code).replaceAll("_"," ");
+      if(staff?.roster_group) return staff.roster_group;
+      return "—";
+    };
+
+    window.parseRosterAssignment = function(value){
+      if(!value) return {type:null,code:null};
+      const idx=String(value).indexOf(":");
+      if(idx<0){
+        const code=sw4CleanPatternCode(value);
+        return code?{type:"pattern",code}:{type:null,code:null};
+      }
+      const type=String(value).slice(0,idx);
+      const code=sw4CleanPatternCode(String(value).slice(idx+1));
+      return code?{type,code}:{type:null,code:null};
+    };
+  })();
+</script>
+
+
+<style>
+  /* SW4 v12 — staff-facing COD, history, safer planning, cleaner header */
+  header{
+    display:grid!important;
+    grid-template-columns:1fr 1.4fr 1fr!important;
+    align-items:center!important;
+    gap:16px!important;
+  }
+  .brand{justify-self:start!important}
+  .top-user{
+    justify-self:center!important;
+    text-align:center!important;
+    min-width:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    color:#d5edf0!important;
+    font-size:14px!important;
+    line-height:1.25!important;
+    font-weight:850!important;
+    letter-spacing:.01em!important;
+  }
+  .top-user strong{
+    display:inline!important;
+    color:#ffffff!important;
+    font-size:19px!important;
+    font-weight:950!important;
+    letter-spacing:-.02em!important;
+  }
+  .top-user .role-inline{
+    color:#d5edf0!important;
+    font-size:14px!important;
+    font-weight:850!important;
+    margin-left:10px!important;
+  }
+  .sw4-self-staff-chip{font-size:13px;font-weight:900;color:#0f766e;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:12px;padding:10px 12px;display:flex;align-items:center;min-height:42px}
+  .sw4-record-filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .sw4-record-filter-row button{border-radius:999px!important;padding:8px 11px!important;font-size:12px!important}
+  .sw4-record-filter-row button.active{background:linear-gradient(135deg,#0f766e,#14b8a6)!important;color:white!important}
+  .sw4-warning-box{background:#fff7ed;border:1px solid #fdba74;color:#7c2d12;border-radius:16px;padding:12px 14px;font-weight:800;line-height:1.45;margin-top:12px}
+  .sw4-cover-needed{font-weight:950;color:#b45309}
+  .staff-shift-line{display:block!important;font-size:12px!important;font-weight:950!important;color:#0f766e!important;margin-top:4px!important;letter-spacing:.03em!important}
+  @media(max-width:760px){header{grid-template-columns:1fr!important}.top-user{justify-self:stretch!important;text-align:left!important}.top-user strong{display:block!important}.top-user .role-inline{display:block!important;margin-left:0!important;margin-top:2px!important}}
+</style>
+
+<script>
+  /* =========================================================
+     SW4 v12 — Change of Duty for all staff, My Records,
+     staff management clean-up, legal/safety warnings,
+     and KPI cover-needed column.
+     ========================================================= */
+  (function(){
+    function v12ProfileId(){return profileStaffId ? profileStaffId() : (appState.profile?.staff_id||appState.profile?.id||null);}
+    function v12CurrentName(){return cleanStaffName(appState.profile?.full_name||appState.profile?.email||"Signed in");}
+    function v12CurrentRole(){return labelRole(appState.profile?.role||"");}
+    function v12MonthStartEnd(){return monthRange(appState.selectedMonth||monthISO(new Date()));}
+    function v12StatusText(row){return String(row.status||"").toLowerCase()||"pending";}
+    function v12RecordFilter(){return appState.myRecordsFilter||"all";}
+    window.setMyRecordsFilter=function(value){appState.myRecordsFilter=value||"all";renderMyRecords();};
+
+    const originalShowAppV12=showApp;
+    showApp=function(){
+      originalShowAppV12();
+      const top=document.getElementById("topUser");
+      if(top && appState.profile){
+        top.innerHTML=`<strong>Surgical Ward 4 — ${escapeHtml(v12CurrentName())}</strong><span class="role-inline">${escapeHtml(v12CurrentRole())}</span>`;
+      }
+    };
+
+    getTabs=function(){
+      const tabs=[["monthlyRoster","Monthly Roster"],["leaveTil","Leave, TIL & OT"],["changeDuty","Change of Duty"],["myRecords","My Records"]];
+      if(sw4IsFullControl()){
+        tabs.push(["staffManagement","My Ward Staff"]);
+        tabs.push(["auditVisuals","KPI Planning"]);
+        tabs.push(["auditHistory","Audit History"]);
+      }
+      tabs.push(["myAccount","My Account"]);
+      return tabs;
+    };
+
+    renderTab=async function(tabKey){
+      const allowed=getTabs().map(t=>t[0]);
+      if(!allowed.includes(tabKey))tabKey="monthlyRoster";
+      appState.activeTab=tabKey;buildTabs();clearMessage();
+      document.getElementById("content").innerHTML=`<div class="card"><p class="muted">Loading...</p></div>`;
+      try{
+        if(tabKey==="monthlyRoster")await renderMonthlyRoster();
+        else if(tabKey==="leaveTil")await renderLeaveTil();
+        else if(tabKey==="changeDuty")await renderChangeOfDuty();
+        else if(tabKey==="myRecords")await renderMyRecords();
+        else if(tabKey==="staffManagement")await renderStaffManagement();
+        else if(tabKey==="auditVisuals")await renderAuditVisuals();
+        else if(tabKey==="auditHistory")await renderAuditHistory();
+        else if(tabKey==="myAccount")await renderMyAccount();
+        else await renderMonthlyRoster();
+      }catch(err){showError(err.message||String(err));}
+    };
+
+    function v12AutoCorpId(name,email){
+      const e=String(email||"").trim().toLowerCase();
+      if(e.includes("@"))return e.split("@")[0].replace(/[^a-z0-9._-]/g,".").slice(0,60);
+      return String(name||"staff").trim().toLowerCase().replace(/[^a-z0-9]+/g,".").replace(/^\.+|\.+$/g,"").slice(0,60)||`staff.${Date.now()}`;
+    }
+
+    renderStaffManagement=async function(){
+      if(!sw4CanManageStaff()){
+        document.getElementById("content").innerHTML=`<div class="card"><div class="info">My Ward Staff is available only to Svetlana Fenech or authorised managers.</div></div>`;
+        return;
+      }
+      const wardId=requireSelectedWard();
+      const {data,error}=await sb.rpc("get_ward_staff_members",{p_ward_id:wardId});
+      if(error)throw error;
+      appState.staffRows=(data||[]).slice().sort((a,b)=>roleSortOrder(a.role)-roleSortOrder(b.role)||cleanStaffName(a.full_name).localeCompare(cleanStaffName(b.full_name)));
+      document.getElementById("content").innerHTML=`<div class="card"><div class="actions" style="justify-content:space-between"><div><h2>My Ward Staff</h2><p class="muted">Staff management for Surgical Ward 4. Corp user ID is hidden; email is shown instead.</p></div><div>${wardSelectorHtml()}</div></div></div>
+      <div class="card"><h3>Add staff member</h3><div class="grid grid-3">
+        <div><label>Full name</label><input id="newStaffName" placeholder="Name and surname"></div>
+        <div><label>Email</label><input id="newStaffEmail" type="email" placeholder="name@gov.mt"></div>
+        <div><label>Role</label>${roleSelectHtml("newStaffRole")}</div>
+        <div><label>Shift</label>${rosterAssignmentSelectHtml("newStaffRosterAssignment")}</div>
+        <div><label>Roster start date</label><input id="newStaffStartDate" type="date"></div>
+      </div><div style="margin-top:14px"><button type="button" onclick="addStaffMember()">Add staff member</button></div></div>
+      <div id="editStaffPanel" class="card hidden"><div class="actions" style="justify-content:space-between"><div><h3>Edit staff member</h3><p class="muted">Svetlana can edit staff profiles, including Charge Nurses.</p></div><button type="button" class="secondary small" onclick="cancelEditStaff()">Close</button></div><input id="editStaffId" type="hidden"><div class="grid grid-3">
+        <div><label>Full name</label><input id="editStaffName"></div>
+        <div><label>Email</label><input id="editStaffEmail" type="email"></div>
+        <div><label>Role</label>${roleSelectHtml("editStaffRole")}</div>
+        <div><label>Shift</label>${rosterAssignmentSelectHtml("editStaffRosterAssignment")}</div>
+        <div><label>Roster start date</label><input id="editStaffStartDate" type="date"></div>
+      </div><div class="actions" style="margin-top:14px"><button type="button" onclick="updateStaffMember()">Save changes</button><button type="button" class="secondary" onclick="cancelEditStaff()">Cancel</button></div></div>
+      <div class="card"><h3>Current staff</h3><div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Shift</th><th>Status</th><th>Actions</th></tr></thead><tbody>${appState.staffRows.map(s=>`<tr><td><strong>${escapeHtml(cleanStaffName(s.full_name))}</strong></td><td>${escapeHtml(s.email||"—")}</td><td>${escapeHtml(labelRole(s.role))}</td><td><span class="sw4-roster-code-inline">${escapeHtml(staffRosterLabel(s))}</span></td><td>${truthy(s.is_active)?badge("Active","green"):badge("Inactive","grey")}</td><td><div class="actions"><button type="button" class="secondary small" onclick="startEditStaff('${escapeHtml(s.id||s.staff_id)}')">Edit</button>${canShowDeactivateButton(s)?`<button type="button" class="danger small" onclick="deactivateStaffMember('${escapeHtml(s.id||s.staff_id)}','${escapeHtml(cleanStaffName(s.full_name))}')">Delete</button>`:""}</div></td></tr>`).join("")||`<tr><td colspan="6" class="muted">No staff found.</td></tr>`}</tbody></table></div></div>`;
+    };
+
+    addStaffMember=async function(){
+      clearMessage();
+      const name=document.getElementById("newStaffName")?.value.trim()||"";
+      const email=document.getElementById("newStaffEmail")?.value.trim()||"";
+      const role=document.getElementById("newStaffRole")?.value||"";
+      const assignment=parseRosterAssignment(document.getElementById("newStaffRosterAssignment")?.value||"");
+      if(!name){showError("Full name is required.");return;}
+      if(!role){showError("Role is required.");return;}
+      if(!assignment.type){showError("Shift code is required.");return;}
+      const {error}=await sb.rpc("create_ward_staff_member",{p_full_name:name,p_corp_user_id:v12AutoCorpId(name,email),p_email:email||null,p_role:role,p_home_ward_id:appState.selectedWardId,p_roster_group_template_id:null,p_roster_group_code:null,p_roster_pattern_id:null,p_roster_pattern_code:assignment.code,p_roster_start_date:document.getElementById("newStaffStartDate")?.value||null,p_roster_group:null,p_employment_type:null});
+      if(error){showError(error.message);return;}
+      showSuccess("Staff member added successfully.");await renderStaffManagement();
+    };
+
+    startEditStaff=function(staffId){
+      clearMessage();
+      const staff=appState.staffRows.find(s=>String(s.id||s.staff_id)===String(staffId));
+      if(!staff){showError("Could not find staff member in the current table.");return;}
+      document.getElementById("editStaffPanel").classList.remove("hidden");
+      document.getElementById("editStaffId").value=staff.id||staff.staff_id;
+      document.getElementById("editStaffName").value=cleanStaffName(staff.full_name||"");
+      document.getElementById("editStaffEmail").value=staff.email||"";
+      document.getElementById("editStaffRole").value=staff.role||"nurse";
+      document.getElementById("editStaffRosterAssignment").value=rosterAssignmentValueFromStaff(staff);
+      document.getElementById("editStaffStartDate").value=dateOnly(staff.roster_start_date)||"";
+      document.getElementById("editStaffPanel").scrollIntoView({behavior:"smooth",block:"start"});
+    };
+
+    updateStaffMember=async function(){
+      clearMessage();
+      const staffId=document.getElementById("editStaffId")?.value||"";
+      const assignment=parseRosterAssignment(document.getElementById("editStaffRosterAssignment")?.value||"");
+      const name=document.getElementById("editStaffName")?.value.trim()||"";
+      const email=document.getElementById("editStaffEmail")?.value.trim()||"";
+      if(!staffId){showError("No staff member selected.");return;}
+      if(!name){showError("Full name is required.");return;}
+      if(!assignment.type){showError("Shift code is required.");return;}
+      const existing=appState.staffRows.find(s=>String(s.id||s.staff_id)===String(staffId));
+      const corp=existing?.corp_user_id||v12AutoCorpId(name,email);
+      const {error}=await sb.rpc("update_ward_staff_member",{p_staff_id:staffId,p_full_name:name,p_corp_user_id:corp,p_email:email||null,p_role:document.getElementById("editStaffRole")?.value,p_home_ward_id:appState.selectedWardId,p_roster_group_template_id:null,p_roster_group_code:null,p_roster_pattern_id:null,p_roster_pattern_code:assignment.code,p_roster_start_date:document.getElementById("editStaffStartDate")?.value||null,p_roster_group:null});
+      if(error){showError(error.message);return;}
+      showSuccess("Staff member updated successfully.");await renderStaffManagement();
+    };
+
+    function v12StaffSelectControl(prefix,staffRows){
+      if(sw4IsFullControl())return `<div><label>Staff Member</label>${staffSelectHtml(`${prefix}Staff`,staffRows)}</div>`;
+      return `<div><label>Staff Member</label><div class="sw4-self-staff-chip">${escapeHtml(v12CurrentName())}</div><input id="${prefix}Staff" type="hidden" value="${escapeHtml(v12ProfileId()||"")}"></div>`;
+    }
+
+    createCod=async function(type,prefix){
+      clearMessage();
+      const staffId=sw4IsFullControl()?document.getElementById(`${prefix}Staff`)?.value:v12ProfileId();
+      const off=document.getElementById(`${prefix}Off`)?.value;
+      const worked=document.getElementById(`${prefix}Worked`)?.value;
+      const notes=document.getElementById(`${prefix}Notes`)?.value?.trim()||null;
+      if(!staffId||!off||!worked){showError("Choose day off and day worked instead.");return;}
+      const {error}=await sb.rpc("create_sw4_change_of_duty",{p_staff_id:staffId,p_cod_type:type,p_off_date:off,p_worked_date:worked,p_notes:notes});
+      if(error){showError(error.message);return;}
+      showSuccess(sw4IsFullControl()?"Change of Duty recorded and approved.":"Change of Duty request recorded and sent to Svetlana for approval.");
+      await renderChangeOfDuty();
+    };
+
+    codSection=function(title,headClass,type,prefix,staffRows,offOptions,workedOptions,rows){
+      return `<div class="cod-section"><div class="cod-head ${headClass}">${escapeHtml(title)}</div><div class="cod-body"><div class="cod-form-grid">${v12StaffSelectControl(prefix,staffRows)}<div><label>${type==="public_holiday"?"Holiday taken off":type==="sunday"?"Sunday off":"Day off"}</label><select id="${prefix}Off">${dateOptionsHtml(offOptions)}</select></div><div><label>${type==="public_holiday"?"Holiday worked instead":type==="sunday"?"Sunday worked":"Day worked instead"}</label><select id="${prefix}Worked">${dateOptionsHtml(workedOptions)}</select></div><div><label>Notes</label><input id="${prefix}Notes" placeholder="Optional..."></div><button type="button" onclick="createCod('${type}','${prefix}')">Record</button></div>${codTable(rows,type)}</div></div>`;
+    };
+
+    renderChangeOfDuty=async function(){
+      const year=Number((appState.selectedMonth||monthISO(new Date())).slice(0,4));
+      const monthDates=monthDateOptions();
+      const sundays=sundayOptionsForYear(year);
+      const holidays=await holidayOptionsForYear(year);
+      const staffRows=sw4IsFullControl()?await loadSw4StaffOptions():[];
+      const rows=sw4IsFullControl()?await sw4RpcOrEmpty("list_sw4_change_of_duty",{p_start_date:`${year}-01-01`,p_end_date:`${year}-12-31`,p_status:null}):await sw4RpcOrEmpty("list_my_sw4_change_of_duty",{p_start_date:`${year}-01-01`,p_end_date:`${year}-12-31`,p_status:null});
+      document.getElementById("content").innerHTML=`<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Change of Duty</h2><h1>Surgical Ward 4</h1><p class="muted">Record duty swaps. Staff record their own swaps; Svetlana has final approval and full control.</p></div><div><label>Month</label><input type="month" value="${appState.selectedMonth}" onchange="setSelectedMonth(this.value)"></div></div></div>${codSection("📅 Normal Day Swap","","normal","normalCod",staffRows,monthDates,monthDates,rows)}${codSection("🇲🇹 Public Holiday Swap","holiday","public_holiday","holidayCod",staffRows,holidays,holidays,rows)}${codSection("☀️ Sunday Swap","sunday","sundayCod".replace("sundayCod","sunday"),"sundayCod",staffRows,sundays,sundays,rows)}`;
+    };
+
+    function myRecordsFilterButtons(active){const buttons=[["all","All"],["leave","Leave"],["sick","Sick Leave"],["til_in","TIL In"],["til_out","TIL Out"],["overtime","Overtime"],["study","Study"],["maternity","Maternity"],["cod","Change of Duty"]];return `<div class="sw4-record-filter-row">${buttons.map(([v,l])=>`<button type="button" class="secondary ${active===v?"active":""}" onclick="setMyRecordsFilter('${v}')">${escapeHtml(l)}</button>`).join("")}</div>`;}
+    function v12RecordCategory(rec){const code=normaliseRosterCode(rec.code||"");if(rec.kind==="cod")return"cod";if(["L","VL","APP"].includes(code))return"leave";if(code==="SL")return"sick";if(code==="TI")return"til_in";if(code==="TO")return"til_out";if(code==="OT")return"overtime";if(code==="ST")return"study";if(code==="ML")return"maternity";return"all";}
+    function v12RecordStatusBadge(status){return requestStatusPill(status||"pending");}
+
+    renderMyRecords=async function(){
+      const active=v12RecordFilter();
+      const {start,end}=v12MonthStartEnd();
+      const [leaveRows,inviteRows,codRows]=await Promise.all([
+        sw4RpcOrEmpty("list_my_sw4_leave_requests"),
+        sw4RpcOrEmpty("list_my_sw4_overtime_invites"),
+        sw4RpcOrEmpty("list_my_sw4_change_of_duty",{p_start_date:start,p_end_date:end,p_status:null})
+      ]);
+      const records=[];
+      for(const r of leaveRows||[]){const d=String(r.request_date||"");if(d>=start&&d<=end)records.push({kind:"request",date:d,code:normaliseRosterCode(r.request_code),type:requestCodeLabel(r.request_code),details:requestSummaryText(r),status:r.status,note:r.staff_note||r.approver_note||""});}
+      for(const r of inviteRows||[]){const d=String(r.invite_date||"");if(d>=start&&d<=end)records.push({kind:"invite",date:d,code:"OT",type:"Overtime invite",details:`${r.start_time||""} · ${r.hours||""} hour(s)`,status:r.status,note:r.manager_note||r.response_note||""});}
+      for(const r of codRows||[]){records.push({kind:"cod",date:String(r.off_date||r.worked_date||""),code:"COD",type:"Change of Duty",details:`Off ${formatDate(r.off_date)} · Worked ${formatDate(r.worked_date)}`,status:r.status,note:r.notes||""});}
+      const filtered=records.filter(r=>active==="all"||v12RecordCategory(r)===active).sort((a,b)=>String(b.date).localeCompare(String(a.date))||a.type.localeCompare(b.type));
+      document.getElementById("content").innerHTML=`<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>My Records</h2><h1>Surgical Ward 4</h1><p class="muted">Your own request and Change of Duty history. Use the buttons for a quick glance.</p>${myRecordsFilterButtons(active)}</div><div class="kpi-filter-row"><div><label>Month</label><select onchange="setSelectedMonthPart(this.value)">${sw4MonthDropdownOptions(monthNumberFromIsoMonth(appState.selectedMonth))}</select></div><div><label>Year</label><select onchange="setSelectedYearPart(this.value)">${sw4YearDropdownOptions(yearNumberFromIsoMonth(appState.selectedMonth))}</select></div></div></div></div><div class="card"><h3>${escapeHtml(monthLabel(appState.selectedMonth))}</h3><div class="table-wrap"><table class="kpi-small-table"><thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Status</th><th>Notes</th></tr></thead><tbody>${filtered.map(r=>`<tr><td>${escapeHtml(formatDate(r.date))}</td><td><strong>${escapeHtml(r.type)}</strong></td><td>${escapeHtml(r.details||"")}</td><td>${v12RecordStatusBadge(r.status)}</td><td>${escapeHtml(r.note||"")}</td></tr>`).join("")||`<tr><td colspan="5" class="muted">No records found for this filter and month.</td></tr>`}</tbody></table></div></div>`;
+    };
+
+    function v12DateAdd(iso,delta){const d=new Date(iso);d.setDate(d.getDate()+delta);return isoFromDate(d);}
+    function v12GetStaffDayCode(staffId,iso){const staff=findMonthlyStaff(staffId);const row=staff?.days?.[iso];return normaliseRosterCode(row?.live_shift_code||row?.baseline_shift_code||"");}
+    function v12SafetyWarnings(staffId,shiftDate,newCode,hours){
+      const code=normaliseRosterCode(newCode);const prev=v12GetStaffDayCode(staffId,v12DateAdd(shiftDate,-1));const current=v12GetStaffDayCode(staffId,shiftDate);const next=v12GetStaffDayCode(staffId,v12DateAdd(shiftDate,1));const warnings=[];
+      if(code==="D" && prev==="N")warnings.push("DAY DUTY AFTER NIGHT DUTY: this staff member was on night duty the previous day and should not be booked on a normal day duty without proper rest.");
+      if(code==="N" && current==="O" && next==="D")warnings.push("NIGHT DUTY BEFORE FIRST DAY DUTY: this staff member is Off today but appears to be starting Day duty tomorrow. Booking a night may create an unsafe roster conflict.");
+      if(code==="OT" && prev==="N" && Number(hours||0)>6)warnings.push("POST-NIGHT OVERTIME LIMIT: after night duty, overtime should normally be limited to around 6 hours, usually from 12:00 until 19:00.");
+      return warnings;
+    }
+    function v12ShowLegalWarning(warnings){if(!warnings.length)return true;return window.confirm(`STAFF SAFETY / LEGAL WARNING\n\n${warnings.join("\n\n")}\n\nPlease review before continuing. Press OK only if you are sure this is clinically safe and authorised.`);}
+
+    const originalSaveShiftPickerModalV12=saveShiftPickerModal;
+    saveShiftPickerModal=async function(){
+      if(shiftPickerState?.manage){
+        const code=normaliseRosterCode(shiftPickerState.selectedCode);
+        const warnings=v12SafetyWarnings(shiftPickerState.staffId,shiftPickerState.shiftDate,code,null);
+        if(!v12ShowLegalWarning(warnings))return;
+      }
+      return originalSaveShiftPickerModalV12();
+    };
+
+    const originalRenderOvertimePlanningV12=renderOvertimePlanning;
+    renderOvertimePlanning=async function(){
+      const date=appState.kpiPlanningDate||todayISO();
+      const wardId=requireSelectedWard();
+      const roster=await sb.rpc("get_my_ward_roster_between",{p_ward_id:wardId,p_start_date:date,p_end_date:date});if(roster.error)throw roster.error;
+      const rows=(roster.data||[]).filter(r=>["O","R"].includes(normaliseRosterCode(r.live_shift_code||r.baseline_shift_code))).sort((a,b)=>roleSortOrder(a.role)-roleSortOrder(b.role)||cleanStaffName(a.full_name).localeCompare(cleanStaffName(b.full_name)));
+      return `<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-end"><div><h3>Overtime planning</h3><p class="muted">Choose a date, view staff who are Off or Rest, and send a safe day, post-night or night overtime invite.</p></div><div><label>Date</label><input type="date" value="${date}" onchange="setKpiPlanningDate(this.value)"></div></div><div class="grid grid-4" style="margin-top:12px"><div><label>Type</label><select id="otInviteShift"><option value="day">Day overtime (07:00)</option><option value="postnight">Post-night overtime (12:00)</option><option value="night">Night overtime (19:00)</option></select></div><div><label>Hours</label><select id="otInviteHours">${sw4HourOptions(6,8)}</select></div><div><label>Note</label><input id="otInviteNote" placeholder="Optional note for nurse"></div><div><label>Start time</label><input id="otInviteStartDisplay" value="07:00" readonly></div></div><div class="sw4-warning-box">Safety rule: avoid day duty immediately after nights. Post-night overtime should normally be no more than 6 hours, usually 12:00–19:00. The system will warn before unsafe invites are sent.</div><div class="table-wrap" style="margin-top:12px"><table class="kpi-small-table"><thead><tr><th>Available staff</th><th>Role</th><th>Current shift</th><th>Action</th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong>${escapeHtml(cleanStaffName(r.full_name))}</strong></td><td>${escapeHtml(labelRole(r.role))}</td><td>${shiftBadge(r.live_shift_code||r.baseline_shift_code)}</td><td><button type="button" class="small success" onclick="sendSw4OvertimeInvite('${escapeHtml(r.staff_id)}','${escapeHtml(date)}')">Send overtime invite</button></td></tr>`).join("")||`<tr><td colspan="4" class="muted">No staff currently marked Off or Rest on this date.</td></tr>`}</tbody></table></div></div>`;
+    };
+
+    const originalSendSw4OvertimeInviteV12=sendSw4OvertimeInvite;
+    sendSw4OvertimeInvite=async function(staffId,date){
+      clearMessage();
+      const shiftType=document.getElementById("otInviteShift")?.value||"day";
+      const start=shiftType==="night"?"19:00":shiftType==="postnight"?"12:00":"07:00";
+      const code=shiftType==="night"?"N":"OT";
+      const hours=Number(document.getElementById("otInviteHours")?.value||6);
+      const warnings=v12SafetyWarnings(staffId,date,code,hours);
+      if(shiftType==="postnight" && hours>6)warnings.push("POST-NIGHT OVERTIME: post-night overtime should not exceed 6 hours.");
+      if(shiftType==="day" && v12GetStaffDayCode(staffId,v12DateAdd(date,-1))==="N")warnings.push("Use Post-night overtime from 12:00 instead of normal Day overtime after a night duty.");
+      if(!v12ShowLegalWarning(warnings))return;
+      const note=document.getElementById("otInviteNote")?.value?.trim()||null;
+      const {error}=await sb.rpc("create_sw4_overtime_invite",{p_staff_id:staffId,p_invite_date:date,p_start_time:start,p_hours:hours,p_manager_note:note});
+      if(error){showError(error.message);return;}
+      showSuccess("Overtime invite sent.");await renderAuditVisuals();
+    };
+
+    function v12WrapAuditWithStartSync(){
+      setTimeout(()=>{const shift=document.getElementById("otInviteShift"),display=document.getElementById("otInviteStartDisplay");if(shift&&display){const sync=()=>{display.value=shift.value==="night"?"19:00":shift.value==="postnight"?"12:00":"07:00";};shift.onchange=sync;sync();}},0);
+    }
+
+    const oldRenderAuditV12=renderAuditVisuals;
+    renderAuditVisuals=async function(){await oldRenderAuditV12();v12WrapAuditWithStartSync();};
+
+    const oldKpiDailyMap = typeof kpiDailyMap==="function" ? kpiDailyMap : null;
+    kpiDailyMap=function(bundle){
+      const byDate=oldKpiDailyMap?oldKpiDailyMap(bundle):{};
+      for(const key of Object.keys(byDate)){const x=byDate[key];x.coverNeeded=(x.leave||0)+(x.sick||0)+(x.tilOut||0)+(x.maternity||0)+(x.study||0)+(x.pending||0);}
+      return byDate;
+    };
+    renderTopDaysTable=function(bundle){const byDate=kpiDailyMap(bundle);const rows=bundle.days.map(d=>{const key=isoFromDate(d),x=byDate[key]||{};return {label:`${d.getDate()} ${weekdayShort(d)}`,leave:x.leave||0,sick:x.sick||0,til:x.til||0,ot:x.ot||0,pending:x.pending||0,coverNeeded:x.coverNeeded||0,total:x.total||0};}).sort((a,b)=>b.coverNeeded-a.coverNeeded||b.total-a.total||b.pending-a.pending).slice(0,8);return `<div class="table-wrap"><table class="kpi-small-table kpi-summary-table"><thead><tr><th>Day</th><th>Leave</th><th>Sick</th><th>TIL</th><th>OT</th><th>Pending</th><th>Cover needed</th><th>Total activity</th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong>${escapeHtml(r.label)}</strong></td><td>${r.leave}</td><td>${r.sick}</td><td>${r.til}</td><td>${r.ot}</td><td>${r.pending}</td><td class="sw4-cover-needed">${r.coverNeeded}</td><td class="${r.total>=4?"kpi-total-warn":"kpi-total-strong"}">${r.total}</td></tr>`).join("")||`<tr><td colspan="8" class="muted">No activity this month yet.</td></tr>`}</tbody></table></div>`;};
+    renderDailySummaryTable=function(bundle){const byDate=kpiDailyMap(bundle);return `<div class="table-wrap"><table class="kpi-small-table kpi-summary-table"><thead><tr><th>Date</th><th>Leave</th><th>Sick</th><th>TIL In</th><th>TIL Out</th><th>Overtime</th><th>Maternity</th><th>Study</th><th>Pending</th><th>Cover needed</th><th>Total</th></tr></thead><tbody>${bundle.days.map(d=>{const key=isoFromDate(d),x=byDate[key]||{},cls=(x.coverNeeded||0)>=2?"sw4-cover-needed":"";return `<tr><td><strong>${d.getDate()} ${weekdayShort(d)}</strong></td><td>${x.leave||0}</td><td>${x.sick||0}</td><td>${x.tilIn||0}</td><td>${x.tilOut||0}</td><td>${x.ot||0}</td><td>${x.maternity||0}</td><td>${x.study||0}</td><td>${x.pending||0}</td><td class="${cls}">${x.coverNeeded||0}</td><td>${x.total||0}</td></tr>`;}).join("")}</tbody></table></div>`;};
+
+    const oldKpiCountsV12=typeof kpiCounts==="function"?kpiCounts:null;
+    kpiCounts=function(bundle){const c=oldKpiCountsV12?oldKpiCountsV12(bundle):{};const byDate=kpiDailyMap(bundle);c.coverNeeded=Object.values(byDate).reduce((sum,x)=>sum+Number(x.coverNeeded||0),0);c.coverPeak=Math.max(0,...Object.values(byDate).map(x=>Number(x.coverNeeded||0)));return c;};
+
+    const oldRenderAuditAfterCounts=renderAuditVisuals;
+    renderAuditVisuals=async function(){
+      if(!sw4IsFullControl()){document.getElementById("content").innerHTML=`<div class="card"><div class="info">KPI Planning is available only to Svetlana Fenech or the hidden system administrator.</div></div>`;return;}
+      const view=appState.kpiPlanningView||"monthly";const bundle=await loadKpiPlanningBundle();const c=kpiCounts(bundle);let body="";
+      if(view==="monthly")body=`<div class="stat-grid">${statCard(c.leave,"Leave")}${statCard(c.sick,"Sick Leave")}${statCard(c.til,"TIL In / Out")}${statCard(c.coverNeeded,"Nurses to cover")}</div><div class="grid grid-2"><div class="card"><h3>Top days needing cover</h3><p class="muted">This helps Svetlana see which days may need replacement staff or overtime planning.</p>${renderTopDaysTable(bundle)}</div><div class="card"><h3>Action summary</h3><table class="kpi-small-table kpi-summary-table"><tbody><tr><td>Total cover needed this month</td><td><strong class="sw4-cover-needed">${c.coverNeeded}</strong></td></tr><tr><td>Highest cover needed on one day</td><td><strong class="sw4-cover-needed">${c.coverPeak}</strong></td></tr><tr><td>Pending leave / TIL / overtime requests</td><td><strong>${c.pending}</strong></td></tr><tr><td>Pending overtime invites</td><td><strong>${c.invitesPending}</strong></td></tr><tr><td>Pending Change of Duty records</td><td><strong>${c.codPending}</strong></td></tr></tbody></table></div></div><div class="card"><h3>Monthly totals by category</h3>${renderKpiTypeSummary(bundle)}</div>`;
+      else if(view==="totals")body=`<div class="grid grid-2"><div class="card"><h3>Monthly totals by category</h3><p class="muted">Approved and pending requests for the selected month.</p>${renderKpiTypeSummary(bundle)}</div><div class="card"><h3>Staff summary for the month</h3><p class="muted">Useful to see who has the highest leave, sick leave, TIL or overtime activity this month.</p>${renderKpiStaffSummary(bundle)}</div></div>`;
+      else if(view==="daily")body=`<div class="card"><h3>Daily summary</h3><p class="muted">The “Cover needed” column shows how many staff may need replacement or overtime planning for each day.</p>${renderDailySummaryTable(bundle)}</div>`;
+      else if(view==="overtime")body=await renderOvertimePlanning();
+      else body=`<div class="grid grid-2"><div class="card"><h3>Pending leave / TIL / overtime requests</h3>${kpiMonthLeaveRows(bundle).filter(r=>String(r.status||"").toLowerCase()==="pending").map(r=>`<div class="invite-card pending"><strong>${escapeHtml(cleanStaffName(r.staff_full_name||r.full_name||""))}</strong><br><span class="muted">${escapeHtml(formatDate(r.request_date))} · ${escapeHtml(requestSummaryText(r))}</span></div>`).join("")||`<div class="info">No pending leave/TIL/overtime requests.</div>`}</div><div class="card"><h3>Pending overtime invites</h3>${(bundle.invites||[]).filter(r=>String(r.status||"").toLowerCase()==="pending").map(r=>overtimeInviteCard(r,"manager")).join("")||`<div class="info">No pending overtime invites.</div>`}</div></div>`;
+      document.getElementById("content").innerHTML=`<div class="card"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>KPI Planning</h2><h1>Surgical Ward 4</h1><p class="muted">Planning dashboard for Svetlana: monthly totals, cover-needed days, overtime planning and pending actions.</p>${kpiNav(view)}</div><div class="kpi-filter-row"><div><label>Month</label><select onchange="setSelectedMonthPart(this.value)">${sw4MonthDropdownOptions(monthNumberFromIsoMonth(appState.selectedMonth))}</select></div><div><label>Year</label><select onchange="setSelectedYearPart(this.value)">${sw4YearDropdownOptions(yearNumberFromIsoMonth(appState.selectedMonth))}</select></div></div></div></div>${body}`;
+      v12WrapAuditWithStartSync();
+    };
+  })();
+</script>
+
 </body>
 </html>
