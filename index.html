@@ -3389,5 +3389,156 @@
   }
 </style>
 
+
+<script>
+/* =========================================================
+   SW4 v18 — pending cells are white/red with the requested
+   abbreviation inside. Legend remains compact. No SQL change.
+   ========================================================= */
+(function(){
+  function sw4PendingDisplayCodeForRequest(requestCode){
+    const req = normaliseRosterCode(requestCode || '');
+    if(req === 'TI') return 'PTI';
+    if(req === 'TO') return 'PTO';
+    if(req === 'OT') return 'POT';
+    if(req === 'SL') return 'PSL';
+    if(req === 'ML') return 'PML';
+    if(req === 'ST') return 'PST';
+    return 'PVL';
+  }
+
+  const oldDisplayShiftCodeV18 = displayShiftCode;
+  displayShiftCode = function(code){
+    const clean = normaliseRosterCode(code);
+    const map = {
+      PVL:'VL', PL:'VL', PSL:'SL', PML:'ML', PST:'ST', PTI:'TI', PTO:'TO', POT:'OT', PCODON:'COD', PCODOFF:'COD', PCOD:'COD',
+      CODON:'COD', CODOFF:'COD', APP:'VL', ATI:'TI', ATO:'TO', AOT:'OT'
+    };
+    return map[clean] || oldDisplayShiftCodeV18(code);
+  };
+
+  const oldShiftLabelV18 = shiftLabel;
+  shiftLabel = function(code){
+    const clean = normaliseRosterCode(code);
+    const labels = {
+      PVL:'Pending Leave', PL:'Pending Leave', PSL:'Pending Sick Leave', PML:'Pending Maternity Leave', PST:'Pending Study Leave',
+      PTI:'Pending TIL In', PTO:'Pending TIL Out', POT:'Pending Overtime', PCODON:'Pending COD on', PCODOFF:'Pending COD off', PCOD:'Pending Change of Duty',
+      APP:'Approved Leave', ATI:'Approved TIL In', ATO:'Approved TIL Out', AOT:'Approved Overtime', CODON:'COD on', CODOFF:'COD off'
+    };
+    return labels[clean] || oldShiftLabelV18(code);
+  };
+
+  leaveOverlayDisplayCode = function(map,staffId,isoDate,fallbackCode){
+    const row = map?.[`${staffId}|${isoDate}`];
+    if(!row) return fallbackCode;
+    const status = String(row.status || '').toLowerCase();
+    const req = normaliseRosterCode(row.request_code || '');
+    if(status === 'pending') return sw4PendingDisplayCodeForRequest(req);
+    if(status === 'approved'){
+      if(req === 'TI') return 'ATI';
+      if(req === 'TO') return 'ATO';
+      if(req === 'OT') return 'AOT';
+      if(req === 'SL') return 'SL';
+      if(req === 'ML') return 'ML';
+      if(req === 'ST') return 'ST';
+      return 'APP';
+    }
+    return fallbackCode;
+  };
+
+  function sw4HoursTextV18(row){
+    if(!row) return '';
+    const hourly = row.is_hourly === true || row.is_hourly === 'true' || Number(row.hours || 0) > 0;
+    const hours = Number(row.hours || 0);
+    if(!hourly || !hours) return '';
+    return `${hours % 1 === 0 ? hours.toFixed(0) : hours.toFixed(1)}h`;
+  }
+  function sw4HoursMarkV18(row){
+    const text = sw4HoursTextV18(row);
+    return text ? `<span class="sw4-hour-mark">${escapeHtml(text)}</span>` : '';
+  }
+
+  async function sw4LoadCodStatusMapForMonthV18(start,end){
+    const out = {};
+    function addCod(row, statusOverride){
+      if(!row) return;
+      const staffId = row.staff_id;
+      const status = String(statusOverride || row.status || 'approved').toLowerCase();
+      if(staffId && row.worked_date){
+        out[`${staffId}|${String(row.worked_date).slice(0,10)}`] = {status, kind:'on', code: status === 'pending' ? 'PCODON' : 'CODON'};
+      }
+      if(staffId && row.off_date){
+        out[`${staffId}|${String(row.off_date).slice(0,10)}`] = {status, kind:'off', code: status === 'pending' ? 'PCODOFF' : 'CODOFF'};
+      }
+      if(staffId && row.cod_date){
+        const kind = String(row.cod_kind || row.kind || '').toLowerCase();
+        const code = status === 'pending' ? (kind === 'off' ? 'PCODOFF' : 'PCODON') : (kind === 'off' ? 'CODOFF' : 'CODON');
+        out[`${staffId}|${String(row.cod_date).slice(0,10)}`] = {status, kind, code};
+      }
+    }
+    try{
+      const approved = await sb.rpc('get_sw4_change_of_duty_roster_markings',{p_start_date:start,p_end_date:end});
+      if(!approved.error){
+        for(const row of (approved.data || [])) addCod(row,'approved');
+      }
+    }catch(err){ console.warn('COD approved markings not loaded',err); }
+    try{
+      const all = await sw4RpcOrEmpty('list_sw4_change_of_duty',{p_start_date:start,p_end_date:end,p_status:null});
+      for(const row of (all || [])) addCod(row,row.status);
+    }catch(err){ console.warn('COD manager list not loaded',err); }
+    try{
+      const mine = await sw4RpcOrEmpty('list_my_sw4_change_of_duty',{p_start_date:start,p_end_date:end,p_status:null});
+      for(const row of (mine || [])) addCod(row,row.status);
+    }catch(err){ console.warn('My COD list not loaded',err); }
+    return out;
+  }
+
+  function sw4CompactLegendV18(){
+    const pendingSample = `<span><span class="shift-cell sw4-pending-legend-sample">P</span> <span class="muted">Pending</span></span>`;
+    return `${legend('D','Day')}${legend('N','Night')}${legend('O','Off')}${legend('R','Rest')}${legend('APP','Leave')}${legend('SL','Sick')}${legend('ML','Maternity')}${legend('ST','Study')}${legend('TI','TIL In')}${legend('TO','TIL Out')}${legend('OT','Overtime')}${legend('CODON','COD')}${pendingSample}`;
+  }
+
+  renderMonthlyRoster = async function(){
+    const wardId=requireSelectedWard();
+    const monthValue=appState.selectedMonth;
+    const {start,end,days}=monthRange(monthValue);
+    const selectedW=selectedWard();
+    const [rosterResult,holidayResult,leaveMap,codStatusMap]=await Promise.all([
+      sb.rpc('get_my_ward_roster_between',{p_ward_id:wardId,p_start_date:start,p_end_date:end}),
+      sb.rpc('get_malta_public_holidays',{p_start_date:start,p_end_date:end}),
+      loadLeaveStatusMapForMonth(start,end),
+      sw4LoadCodStatusMapForMonthV18(start,end)
+    ]);
+    if(rosterResult.error) throw rosterResult.error;
+    if(holidayResult.error) throw holidayResult.error;
+    const grouped=groupRosterByStaff(rosterResult.data||[]), holidays=holidayResult.data||[];
+    appState.monthlyRosterRows=grouped;
+    const holidayMap={};
+    for(const h of holidays) holidayMap[h.holiday_date]=h;
+    const compactLegend=sw4CompactLegendV18();
+    document.getElementById('content').innerHTML=`<div class="card roster-hero"><div class="actions" style="justify-content:space-between;align-items:flex-start"><div><h2>Monthly Roster</h2><h1>${escapeHtml(selectedW?.ward_name||'Surgical Ward 4')}</h1><div class="roster-month-focus">${escapeHtml(monthLabel(monthValue))}</div></div><div class="roster-nav">${wardSelectorHtml()}<div><label>Month</label><input type="month" value="${monthValue}" onchange="setSelectedMonth(this.value)"></div><div><label>Jump to date</label><input id="rosterJumpDate" type="date"></div><button class="secondary" type="button" onclick="jumpRosterDate()">Jump</button><button class="secondary" type="button" onclick="changeRosterMonth(-1)">← Prev</button><button class="secondary" type="button" onclick="goRosterToday()">Today</button><button class="secondary" type="button" onclick="changeRosterMonth(1)">Next →</button></div></div></div><div class="card"><div class="legend-compact sw4-clean-legend">${compactLegend}</div></div><div class="card roster-table-card"><div class="table-wrap roster-table-wrap"><table class="roster-table"><thead><tr><th>Staff Member</th>${days.map(d=>{const key=isoFromDate(d),h=holidayMap[key];return `<th class="${h?'holiday-col':''} ${key===todayISO()?'today-col':''}"><div class="day-head"><span>${weekdayShort(d)}</span><span>${d.getDate()}</span>${h?`<span class="holiday-label" title="${escapeHtml(h.holiday_name)}">${escapeHtml(h.short_label||h.holiday_name)}</span>`:''}</div></th>`;}).join('')}</tr></thead><tbody>${grouped.map(staff=>`<tr><td><span class="staff-name-line">${escapeHtml(cleanStaffName(staff.full_name))}</span><span class="staff-role-line">${escapeHtml(labelRole(staff.role))}</span><span class="staff-shift-line">${escapeHtml(staffRosterLabel(staff))}</span></td>${days.map(day=>{const key=isoFromDate(day),r=staff.days[key],actualCode=r?.live_shift_code||'',baseDisplay=normaliseRosterCode(actualCode),leaveRow=leaveMap?.[`${staff.staff_id}|${key}`],codRow=codStatusMap?.[`${staff.staff_id}|${key}`],displayCode=codRow?.code || leaveOverlayDisplayCode(leaveMap,staff.staff_id,key,baseDisplay),h=holidayMap[key],showDot=sw4ShouldShowChangeDot(r);return `<td class="${h?'holiday-col':''} ${key===todayISO()?'today-col':''}">${shiftButton(staff.staff_id,key,displayCode,showDot,actualCode)}${sw4HoursMarkV18(leaveRow)}</td>`;}).join('')}</tr>`).join('')||`<tr><td colspan="${days.length+1}" class="muted">No core roster rows found for this ward/month.</td></tr>`}</tbody></table></div></div>`;
+    if(typeof sw4V16CleanHeader === 'function') sw4V16CleanHeader();
+  };
+})();
+</script>
+<style>
+  /* v18 pending style: all pending request types are white with red border/text. */
+  .shift-PVL,.shift-PL,.shift-PSL,.shift-PML,.shift-PST,.shift-PTI,.shift-PTO,.shift-POT,.shift-PCODON,.shift-PCODOFF,.shift-PCOD{
+    background:#ffffff!important;
+    color:#b91c1c!important;
+    border:2px solid #ef4444!important;
+    box-shadow:0 0 0 2px rgba(239,68,68,.12)!important;
+  }
+  .shift-PVL:hover,.shift-PL:hover,.shift-PSL:hover,.shift-PML:hover,.shift-PST:hover,.shift-PTI:hover,.shift-PTO:hover,.shift-POT:hover,.shift-PCODON:hover,.shift-PCODOFF:hover,.shift-PCOD:hover{
+    background:#fff5f5!important;
+  }
+  .sw4-pending-legend-sample{
+    background:#ffffff!important;
+    color:#b91c1c!important;
+    border:2px solid #ef4444!important;
+    box-shadow:0 0 0 2px rgba(239,68,68,.12)!important;
+  }
+</style>
+
 </body>
 </html>
