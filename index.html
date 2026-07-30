@@ -3527,6 +3527,615 @@
   };
 })();
 </script>
+
+<script>
+/* =========================================================
+   SW4 v20 — Staff profile detail page for charge nurses
+   Click a staff name on the roster to see their full profile
+   with leave, sick, planned leave, roster summary and print.
+   ========================================================= */
+(function(){
+
+  function sw4StaffNameCell(staff){
+    const name = escapeHtml(cleanStaffName(staff.full_name));
+    const role = escapeHtml(labelRole(staff.role));
+    const pattern = escapeHtml(staffRosterLabel(staff));
+    if(sw4IsChargeOrManager()){
+      return `<td class="sw4-staff-clickable" onclick="sw4OpenStaffProfile('${escapeHtml(staff.staff_id)}')" title="Click to view profile">
+        <span class="staff-name-line sw4-staff-link">${name}</span>
+        <span class="staff-role-line">${role}</span>
+        <span class="staff-shift-line">${pattern}</span>
+      </td>`;
+    }
+    return `<td>
+      <span class="staff-name-line">${name}</span>
+      <span class="staff-role-line">${role}</span>
+      <span class="staff-shift-line">${pattern}</span>
+    </td>`;
+  }
+
+  const prevRenderV20 = renderMonthlyRoster;
+  renderMonthlyRoster = async function(){
+    await prevRenderV20();
+    if(!sw4IsChargeOrManager()) return;
+    const rows = document.querySelectorAll('.roster-table tbody tr');
+    const grouped = appState.monthlyRosterRows || [];
+    const filtered = sw4IsChargeOrManager() ? grouped : grouped.filter(s=>!sw4IsChargeNurseRow(s));
+    const sorted = filtered.slice().sort(sw4CompareStaffRows);
+    rows.forEach((tr, i) => {
+      const staff = sorted[i];
+      if(!staff) return;
+      const td = tr.querySelector('td:first-child');
+      if(!td) return;
+      td.classList.add('sw4-staff-clickable');
+      td.setAttribute('onclick', `sw4OpenStaffProfile('${staff.staff_id}')`);
+      td.setAttribute('title', 'Click to view staff profile');
+      const nameLine = td.querySelector('.staff-name-line');
+      if(nameLine) nameLine.classList.add('sw4-staff-link');
+    });
+  };
+
+  window.sw4OpenStaffProfile = async function(staffId){
+    if(!sw4IsChargeOrManager()) return;
+    clearMessage();
+
+    const staff = findMonthlyStaff(staffId);
+    if(!staff){showError('Staff member not found.');return;}
+
+    const name = cleanStaffName(staff.full_name);
+    const role = labelRole(staff.role);
+    const pattern = staffRosterLabel(staff);
+    const monthValue = appState.selectedMonth;
+    const {start, end, days} = monthRange(monthValue);
+
+    let allLeave = [];
+    try {
+      const res = await sb.rpc('list_sw4_leave_requests_for_approver',{p_status:null});
+      if(!res.error) allLeave = (res.data||[]).filter(r => String(r.staff_id) === String(staffId));
+    } catch(e){ console.warn('Could not load leave for profile',e); }
+
+    const monthLeave = allLeave.filter(r => {
+      const d = String(r.request_date||'');
+      return d >= start && d <= end;
+    });
+
+    const approved = allLeave.filter(r => String(r.status||'').toLowerCase() === 'approved');
+    const pending = allLeave.filter(r => String(r.status||'').toLowerCase() === 'pending');
+    const rejected = allLeave.filter(r => String(r.status||'').toLowerCase() === 'rejected');
+
+    const sickAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'SL');
+    const leaveAll = approved.filter(r => ['L','VL','AL'].includes(normaliseRosterCode(r.request_code)));
+    const maternityAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'ML');
+    const studyAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'ST');
+    const tilInAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'TI');
+    const tilOutAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'TO');
+    const otAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'OT');
+
+    const monthCodes = {};
+    for(const d of days){
+      const key = isoFromDate(d);
+      const r = staff.days[key];
+      const code = normaliseRosterCode(r?.live_shift_code || '');
+      if(code) monthCodes[code] = (monthCodes[code]||0) + 1;
+    }
+
+    const futureLeave = allLeave.filter(r => {
+      return String(r.request_date||'') >= todayISO() &&
+        ['approved','pending'].includes(String(r.status||'').toLowerCase());
+    }).sort((a,b) => String(a.request_date||'').localeCompare(String(b.request_date||'')));
+
+    const recentHistory = allLeave.slice().sort((a,b) =>
+      String(b.request_date||'').localeCompare(String(a.request_date||''))
+    ).slice(0, 30);
+
+    const isSvetlana = name.toLowerCase().includes('svetlana');
+
+    function buildMonthlyTrends(){
+      const today = new Date();
+      const months = [];
+      for(let i = 5; i >= 0; i--){
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const mStart = d.toISOString().slice(0,10);
+        const mEnd = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+        const mLabel = d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'});
+        const daysInMonth = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+        const mLeave = approved.filter(r => {const dt=String(r.request_date||''); return dt>=mStart && dt<=mEnd;});
+        const sick = mLeave.filter(r => normaliseRosterCode(r.request_code)==='SL').length;
+        const annual = mLeave.filter(r => ['L','VL','AL'].includes(normaliseRosterCode(r.request_code))).length;
+        const study = mLeave.filter(r => normaliseRosterCode(r.request_code)==='ST').length;
+        const ot = mLeave.filter(r => normaliseRosterCode(r.request_code)==='OT').length;
+        const tilIn = mLeave.filter(r => normaliseRosterCode(r.request_code)==='TI').length;
+        const tilOut = mLeave.filter(r => normaliseRosterCode(r.request_code)==='TO').length;
+        const totalAbsent = sick + annual + study;
+        const attendanceRate = daysInMonth > 0 ? Math.round(((daysInMonth - totalAbsent)/daysInMonth)*100) : 100;
+        months.push({label:mLabel, sick, annual, study, ot, tilIn, tilOut, totalAbsent, attendanceRate});
+      }
+      return months;
+    }
+    const trends = buildMonthlyTrends();
+    const maxAbsent = Math.max(1, ...trends.map(m => m.totalAbsent));
+
+    function trendBar(m){
+      const sickPct = Math.round((m.sick/maxAbsent)*100);
+      const annualPct = Math.round((m.annual/maxAbsent)*100);
+      const studyPct = Math.round((m.study/maxAbsent)*100);
+      return `<div class="sw4-trend-col">
+        <div class="sw4-trend-bar-wrap">
+          <div class="sw4-trend-bar sw4-trend-sick" style="height:${sickPct}%"${m.sick?` title="Sick: ${m.sick}"`:''} ></div>
+          <div class="sw4-trend-bar sw4-trend-annual" style="height:${annualPct}%"${m.annual?` title="Leave: ${m.annual}"`:''} ></div>
+          <div class="sw4-trend-bar sw4-trend-study" style="height:${studyPct}%"${m.study?` title="Study: ${m.study}"`:''} ></div>
+        </div>
+        <div class="sw4-trend-lbl">${m.label}</div>
+        <div class="sw4-trend-att">${m.attendanceRate}%</div>
+      </div>`;
+    }
+
+    const avgAttendance = trends.length ? Math.round(trends.reduce((s,m)=>s+m.attendanceRate,0)/trends.length) : 100;
+    const totalSick6m = trends.reduce((s,m)=>s+m.sick,0);
+    const totalLeave6m = trends.reduce((s,m)=>s+m.annual,0);
+    const totalOT6m = trends.reduce((s,m)=>s+m.ot,0);
+    const sickTrend = trends.length >= 2 ? trends[trends.length-1].sick - trends[trends.length-2].sick : 0;
+    const sickTrendIcon = sickTrend > 0 ? '&#9650;' : sickTrend < 0 ? '&#9660;' : '&#8212;';
+    const sickTrendCls = sickTrend > 0 ? 'sw4-trend-up' : sickTrend < 0 ? 'sw4-trend-down' : 'sw4-trend-flat';
+
+    function statBox(label, count, cls){
+      return `<div class="sw4-profile-stat ${cls||''}"><div class="sw4-profile-stat-val">${count}</div><div class="sw4-profile-stat-lbl">${escapeHtml(label)}</div></div>`;
+    }
+
+    function leaveRow(r){
+      const st = String(r.status||'').toLowerCase();
+      const pill = st==='approved'?'<span class="sw4-pill sw4-pill-green">Approved</span>'
+        : st==='pending'?'<span class="sw4-pill sw4-pill-yellow">Pending</span>'
+        : st==='rejected'?'<span class="sw4-pill sw4-pill-red">Rejected</span>'
+        : `<span class="sw4-pill">${escapeHtml(r.status||'')}</span>`;
+      return `<tr>
+        <td>${escapeHtml(formatDate(r.request_date))}</td>
+        <td><span class="shift-cell shift-${escapeHtml(normaliseRosterCode(r.request_code))}" style="font-size:10px;min-width:28px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px">${escapeHtml(displayShiftCode(r.request_code))}</span> ${escapeHtml(requestCodeLabel(r.request_code))}</td>
+        <td>${r.is_hourly ? escapeHtml(`${r.start_time||'07:00'} · ${r.hours||1}h`) : 'Full day'}</td>
+        <td>${pill}</td>
+        <td>${escapeHtml(r.staff_note||'—')}</td>
+      </tr>`;
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'sw4StaffProfileBackdrop';
+    backdrop.className = 'sw4-profile-backdrop';
+    backdrop.addEventListener('click', e => { if(e.target === backdrop) sw4CloseStaffProfile(); });
+
+    backdrop.innerHTML = `
+    <div class="sw4-profile-page" ${isSvetlana ? 'data-svetlana="true"' : ''}>
+      <div class="sw4-profile-header">
+        <div>
+          <h1 class="sw4-profile-name">${escapeHtml(name)}</h1>
+          <div class="sw4-profile-meta">${escapeHtml(role)} · Pattern: ${escapeHtml(pattern)} · Surgical Ward 4</div>
+        </div>
+        <div class="sw4-profile-actions">
+          <button type="button" class="secondary" onclick="sw4PrintStaffProfile()">Print</button>
+          <button type="button" class="secondary" onclick="sw4CloseStaffProfile()">Close</button>
+        </div>
+      </div>
+
+      <div class="sw4-print-filters" id="sw4PrintFilters">
+        <h3 class="sw4-print-filters-title">Print Filters</h3>
+        <div class="sw4-filter-row">
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_summary" checked> Leave Summary (All Time)</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_month" checked> This Month</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_trends" checked> Metrics &amp; Trends</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_upcoming" checked> Upcoming / Planned</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_history" checked> Recent History</label>
+        </div>
+        <div class="sw4-filter-row">
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_approved" checked> Approved</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_pending" checked> Pending</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_rejected" checked> Rejected</label>
+        </div>
+        <div class="sw4-filter-row sw4-filter-sort">
+          <label class="sw4-filter-lbl">Sort by:</label>
+          <select id="sw4PF_sort" class="sw4-filter-select">
+            <option value="date-desc">Date (Newest First)</option>
+            <option value="date-asc">Date (Oldest First)</option>
+            <option value="type">Leave Type</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sw4-profile-section" data-section="summary">
+        <h2>Leave Summary (All Time)</h2>
+        <div class="sw4-profile-stats">
+          ${statBox('Annual Leave', leaveAll.length, 'green')}
+          ${statBox('Sick Leave', sickAll.length, 'red')}
+          ${statBox('Maternity', maternityAll.length, 'pink')}
+          ${statBox('Study', studyAll.length, 'amber')}
+          ${statBox('TIL In', tilInAll.length, 'teal')}
+          ${statBox('TIL Out', tilOutAll.length, 'cyan')}
+          ${statBox('Overtime', otAll.length, 'orange')}
+          ${statBox('Pending', pending.length, 'yellow')}
+        </div>
+      </div>
+
+      <div class="sw4-profile-section" data-section="month">
+        <h2>This Month — ${escapeHtml(monthLabel(monthValue))}</h2>
+        <div class="sw4-profile-stats">
+          ${statBox('Days', monthCodes['D']||0)}
+          ${statBox('Nights', monthCodes['N']||0)}
+          ${statBox('Off', monthCodes['O']||0)}
+          ${statBox('Rest', monthCodes['R']||0)}
+          ${statBox('Leave', (monthCodes['L']||0)+(monthCodes['AL']||0)+(monthCodes['VL']||0))}
+          ${statBox('Sick', monthCodes['SL']||0, 'red')}
+          ${statBox('TIL In', monthCodes['TI']||0)}
+          ${statBox('TIL Out', monthCodes['TO']||0)}
+          ${statBox('Overtime', monthCodes['OT']||0)}
+        </div>
+      </div>
+
+      <div class="sw4-profile-section" data-section="trends">
+        <h2>Metrics &amp; Trends (Last 6 Months)</h2>
+        <div class="sw4-trend-summary">
+          ${statBox('Avg Attendance', avgAttendance + '%', avgAttendance >= 90 ? 'green' : avgAttendance >= 75 ? 'amber' : 'red')}
+          ${statBox('Sick Days', totalSick6m, totalSick6m > 6 ? 'red' : '')}
+          ${statBox('Leave Days', totalLeave6m, 'green')}
+          ${statBox('Overtime', totalOT6m, 'orange')}
+          <div class="sw4-profile-stat ${sickTrendCls}">
+            <div class="sw4-profile-stat-val">${sickTrendIcon}</div>
+            <div class="sw4-profile-stat-lbl">Sick Trend</div>
+          </div>
+        </div>
+        <div class="sw4-trend-chart">
+          <div class="sw4-trend-legend">
+            <span class="sw4-trend-legend-item"><span class="sw4-trend-dot sw4-trend-sick"></span> Sick</span>
+            <span class="sw4-trend-legend-item"><span class="sw4-trend-dot sw4-trend-annual"></span> Leave</span>
+            <span class="sw4-trend-legend-item"><span class="sw4-trend-dot sw4-trend-study"></span> Study</span>
+          </div>
+          <div class="sw4-trend-bars">${trends.map(trendBar).join('')}</div>
+        </div>
+        <div class="sw4-trend-detail-grid">
+          <table class="sw4-profile-table sw4-trend-table">
+            <thead><tr><th>Month</th><th>Sick</th><th>Leave</th><th>Study</th><th>OT</th><th>TIL In</th><th>TIL Out</th><th>Attendance</th></tr></thead>
+            <tbody>${trends.map(m => `<tr>
+              <td style="font-weight:700">${m.label}</td>
+              <td>${m.sick||'—'}</td><td>${m.annual||'—'}</td><td>${m.study||'—'}</td>
+              <td>${m.ot||'—'}</td><td>${m.tilIn||'—'}</td><td>${m.tilOut||'—'}</td>
+              <td><span class="sw4-att-badge ${m.attendanceRate>=90?'sw4-att-good':m.attendanceRate>=75?'sw4-att-warn':'sw4-att-bad'}">${m.attendanceRate}%</span></td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+
+      ${futureLeave.length ? `
+      <div class="sw4-profile-section" data-section="upcoming">
+        <h2>Upcoming / Planned</h2>
+        <div class="table-wrap">
+          <table class="sw4-profile-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Status</th><th>Note</th></tr></thead>
+            <tbody>${futureLeave.map(leaveRow).join('')}</tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      <div class="sw4-profile-section" data-section="history">
+        <h2>Recent Request History</h2>
+        ${recentHistory.length ? `
+        <div class="table-wrap">
+          <table class="sw4-profile-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Status</th><th>Note</th></tr></thead>
+            <tbody>${recentHistory.map(leaveRow).join('')}</tbody>
+          </table>
+        </div>` : '<div class="muted">No request history found for this staff member.</div>'}
+      </div>
+    </div>`;
+
+    const existing = document.getElementById('sw4StaffProfileBackdrop');
+    if(existing) existing.remove();
+    document.body.appendChild(backdrop);
+  };
+
+  window.sw4CloseStaffProfile = function(){
+    const el = document.getElementById('sw4StaffProfileBackdrop');
+    if(el) el.remove();
+  };
+
+  window.sw4PrintStaffProfile = function(){
+    const page = document.querySelector('.sw4-profile-page');
+    if(!page) return;
+
+    const showSummary = document.getElementById('sw4PF_summary')?.checked !== false;
+    const showMonth = document.getElementById('sw4PF_month')?.checked !== false;
+    const showTrends = document.getElementById('sw4PF_trends')?.checked !== false;
+    const showUpcoming = document.getElementById('sw4PF_upcoming')?.checked !== false;
+    const showHistory = document.getElementById('sw4PF_history')?.checked !== false;
+    const showApproved = document.getElementById('sw4PF_approved')?.checked !== false;
+    const showPending = document.getElementById('sw4PF_pending')?.checked !== false;
+    const showRejected = document.getElementById('sw4PF_rejected')?.checked !== false;
+    const sortBy = document.getElementById('sw4PF_sort')?.value || 'date-desc';
+
+    const clone = page.cloneNode(true);
+
+    const filters = clone.querySelector('.sw4-print-filters');
+    if(filters) filters.remove();
+
+    const sectionMap = {summary: showSummary, month: showMonth, trends: showTrends, upcoming: showUpcoming, history: showHistory};
+    clone.querySelectorAll('.sw4-profile-section[data-section]').forEach(sec => {
+      if(!sectionMap[sec.dataset.section]) sec.remove();
+    });
+
+    const statusFilter = s => {
+      const st = s.toLowerCase();
+      if(st === 'approved' && !showApproved) return false;
+      if(st === 'pending' && !showPending) return false;
+      if(st === 'rejected' && !showRejected) return false;
+      return true;
+    };
+
+    clone.querySelectorAll('.sw4-profile-table tbody').forEach(tbody => {
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.forEach(row => {
+        const pill = row.querySelector('.sw4-pill');
+        if(pill){
+          const st = pill.textContent.trim().toLowerCase();
+          if(!statusFilter(st)) row.remove();
+        }
+      });
+
+      const remaining = Array.from(tbody.querySelectorAll('tr'));
+      if(remaining.length > 1){
+        remaining.sort((a, b) => {
+          if(sortBy === 'date-asc'){
+            return (a.cells[0]?.textContent||'').localeCompare(b.cells[0]?.textContent||'');
+          } else if(sortBy === 'type'){
+            const ta = (a.cells[1]?.textContent||'').trim(), tb = (b.cells[1]?.textContent||'').trim();
+            return ta.localeCompare(tb) || (b.cells[0]?.textContent||'').localeCompare(a.cells[0]?.textContent||'');
+          } else if(sortBy === 'status'){
+            const order = {approved:0,pending:1,rejected:2};
+            const sa = (a.querySelector('.sw4-pill')?.textContent||'').trim().toLowerCase();
+            const sb2 = (b.querySelector('.sw4-pill')?.textContent||'').trim().toLowerCase();
+            return (order[sa]??3) - (order[sb2]??3) || (b.cells[0]?.textContent||'').localeCompare(a.cells[0]?.textContent||'');
+          }
+          return (b.cells[0]?.textContent||'').localeCompare(a.cells[0]?.textContent||'');
+        });
+        remaining.forEach(r => tbody.appendChild(r));
+      }
+    });
+
+    const actions = clone.querySelector('.sw4-profile-actions');
+    if(actions) actions.style.display = 'none';
+
+    const now = new Date();
+    const printDate = now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+
+    const win = window.open('','_blank','width=900,height=700');
+    win.document.write(`<!doctype html><html><head><title>Staff Profile — Print</title>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:Inter,Arial,sans-serif;color:#1e1b4b;padding:30px;font-size:13px;line-height:1.5}
+      h1{font-size:24px;font-weight:900;margin-bottom:4px;color:#3b0764}
+      h2{font-size:15px;font-weight:800;margin:20px 0 10px;color:#581c87;border-bottom:2px solid #e9d5ff;padding-bottom:6px}
+      .sw4-profile-meta{color:#6b21a8;font-size:13px;font-weight:700;margin-bottom:16px}
+      .sw4-profile-stats{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+      .sw4-profile-stat{border:1px solid #e5e7eb;border-radius:10px;padding:10px 14px;min-width:90px;text-align:center}
+      .sw4-profile-stat-val{font-size:22px;font-weight:900}
+      .sw4-profile-stat-lbl{font-size:11px;font-weight:700;color:#6b7280;margin-top:2px}
+      .sw4-profile-stat.red .sw4-profile-stat-val{color:#dc2626}
+      .sw4-profile-stat.green .sw4-profile-stat-val{color:#059669}
+      .sw4-profile-stat.pink .sw4-profile-stat-val{color:#ec4899}
+      .sw4-profile-stat.amber .sw4-profile-stat-val{color:#d97706}
+      .sw4-profile-stat.teal .sw4-profile-stat-val{color:#0d9488}
+      .sw4-profile-stat.cyan .sw4-profile-stat-val{color:#0891b2}
+      .sw4-profile-stat.orange .sw4-profile-stat-val{color:#ea580c}
+      .sw4-profile-stat.yellow .sw4-profile-stat-val{color:#ca8a04}
+      table{width:100%;border-collapse:collapse;margin:8px 0}
+      th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px}
+      th{font-weight:800;background:#f9fafb;color:#374151}
+      .sw4-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:800}
+      .sw4-pill-green{background:#dcfce7;color:#166534}
+      .sw4-pill-yellow{background:#fef9c3;color:#854d0e}
+      .sw4-pill-red{background:#fee2e2;color:#991b1b}
+      .sw4-profile-actions{display:none}
+      .sw4-print-filters{display:none}
+      .shift-cell{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #ccc}
+      .sw4-print-footer{margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;display:flex;justify-content:space-between}
+      .sw4-trend-summary{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+      .sw4-trend-chart{margin:16px 0}
+      .sw4-trend-bars{display:flex;gap:4px;align-items:flex-end;height:80px}
+      .sw4-trend-col{flex:1;display:flex;flex-direction:column;align-items:center}
+      .sw4-trend-bar-wrap{width:100%;height:60px;display:flex;flex-direction:column;justify-content:flex-end;gap:1px}
+      .sw4-trend-bar{border-radius:3px;min-height:0}
+      .sw4-trend-sick{background:#dc2626}
+      .sw4-trend-annual{background:#059669}
+      .sw4-trend-study{background:#d97706}
+      .sw4-trend-lbl{font-size:10px;font-weight:700;margin-top:4px;color:#374151}
+      .sw4-trend-att{font-size:9px;font-weight:800;color:#6b7280}
+      .sw4-trend-legend{display:flex;gap:12px;margin-bottom:8px;font-size:10px;font-weight:700;color:#374151}
+      .sw4-trend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+      .sw4-att-badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800}
+      .sw4-att-good{background:#dcfce7;color:#166534}
+      .sw4-att-warn{background:#fef9c3;color:#854d0e}
+      .sw4-att-bad{background:#fee2e2;color:#991b1b}
+      .sw4-trend-up .sw4-profile-stat-val{color:#dc2626}
+      .sw4-trend-down .sw4-profile-stat-val{color:#059669}
+      .sw4-trend-flat .sw4-profile-stat-val{color:#6b7280}
+      @media print{body{padding:15px}h1{font-size:20px}}
+    </style></head><body>${clone.innerHTML}<div class="sw4-print-footer"><span>Surgical Ward 4 — Staff Profile Report</span><span>Printed: ${printDate}</span></div></body></html>`);
+    win.document.close();
+    setTimeout(()=>{ win.focus(); win.print(); }, 400);
+  };
+
+})();
+</script>
+
+<style>
+  /* SW4 v21 — Staff profile styles: neutral base + Svetlana violet override */
+  .sw4-staff-clickable{cursor:pointer!important}
+  .sw4-staff-clickable:hover{background:rgba(37,99,235,.06)!important}
+  .sw4-staff-link{color:#1d4ed8!important;text-decoration:underline!important;text-decoration-color:rgba(29,78,216,.3)!important;text-underline-offset:2px!important}
+  .sw4-staff-clickable:hover .sw4-staff-link{text-decoration-color:#1d4ed8!important}
+
+  /* ── Backdrop ── */
+  .sw4-profile-backdrop{
+    position:fixed!important;inset:0!important;z-index:9999!important;
+    background:rgba(15,23,42,.5)!important;backdrop-filter:blur(6px)!important;
+    display:flex!important;align-items:flex-start!important;justify-content:center!important;
+    padding:30px 20px!important;overflow-y:auto!important;
+  }
+
+  /* ── Page container (neutral) ── */
+  .sw4-profile-page{
+    background:#fff!important;border-radius:24px!important;
+    box-shadow:0 25px 80px rgba(15,23,42,.22)!important;
+    max-width:960px!important;width:100%!important;padding:32px!important;color:#1e293b!important;
+  }
+  .sw4-profile-header{
+    display:flex!important;justify-content:space-between!important;align-items:flex-start!important;
+    gap:16px!important;margin-bottom:24px!important;border-bottom:2px solid #e2e8f0!important;padding-bottom:18px!important;
+  }
+  .sw4-profile-name{font-size:28px!important;font-weight:900!important;color:#0f172a!important;margin:0!important}
+  .sw4-profile-meta{color:#475569!important;font-size:14px!important;font-weight:700!important;margin-top:4px!important}
+  .sw4-profile-actions{display:flex!important;gap:8px!important;flex-shrink:0!important}
+
+  /* ── Filters (neutral) ── */
+  .sw4-print-filters{
+    background:linear-gradient(135deg,#f8fafc,#f1f5f9)!important;
+    border:1.5px solid #cbd5e1!important;border-radius:14px!important;
+    padding:16px 20px!important;margin-bottom:20px!important;
+  }
+  .sw4-print-filters-title{font-size:14px!important;font-weight:800!important;color:#1e293b!important;margin:0 0 10px 0!important}
+  .sw4-filter-row{display:flex!important;flex-wrap:wrap!important;gap:12px 20px!important;align-items:center!important;margin-bottom:8px!important}
+  .sw4-filter-row:last-child{margin-bottom:0!important}
+  .sw4-filter-check{display:flex!important;align-items:center!important;gap:6px!important;font-size:13px!important;font-weight:600!important;color:#1e293b!important;cursor:pointer!important;white-space:nowrap!important}
+  .sw4-filter-check input[type="checkbox"]{width:16px!important;height:16px!important;accent-color:#2563eb!important;cursor:pointer!important}
+  .sw4-filter-lbl{font-size:13px!important;font-weight:700!important;color:#334155!important}
+  .sw4-filter-select{padding:5px 10px!important;border:1.5px solid #94a3b8!important;border-radius:8px!important;font-size:13px!important;font-weight:600!important;color:#1e293b!important;background:#fff!important;cursor:pointer!important;outline:none!important}
+  .sw4-filter-select:focus{border-color:#2563eb!important;box-shadow:0 0 0 2px rgba(37,99,235,.2)!important}
+  .sw4-filter-sort{margin-top:4px!important;padding-top:10px!important;border-top:1px solid #e2e8f0!important}
+
+  /* ── Sections (neutral) ── */
+  .sw4-profile-section{margin-bottom:24px!important}
+  .sw4-profile-section h2{font-size:16px!important;font-weight:800!important;color:#1e293b!important;margin:0 0 12px 0!important;border-bottom:2px solid #e2e8f0!important;padding-bottom:8px!important}
+  .sw4-profile-stats, .sw4-trend-summary{display:flex!important;flex-wrap:wrap!important;gap:10px!important}
+  .sw4-profile-stat{border:1px solid #e2e8f0!important;border-radius:14px!important;padding:12px 16px!important;min-width:95px!important;text-align:center!important;background:#f8fafc!important}
+  .sw4-profile-stat-val{font-size:26px!important;font-weight:900!important;color:#0f172a!important}
+  .sw4-profile-stat-lbl{font-size:11px!important;font-weight:700!important;color:#64748b!important;margin-top:2px!important}
+  .sw4-profile-stat.red .sw4-profile-stat-val{color:#dc2626!important}
+  .sw4-profile-stat.green .sw4-profile-stat-val{color:#059669!important}
+  .sw4-profile-stat.pink .sw4-profile-stat-val{color:#ec4899!important}
+  .sw4-profile-stat.amber .sw4-profile-stat-val{color:#d97706!important}
+  .sw4-profile-stat.teal .sw4-profile-stat-val{color:#0d9488!important}
+  .sw4-profile-stat.cyan .sw4-profile-stat-val{color:#0891b2!important}
+  .sw4-profile-stat.orange .sw4-profile-stat-val{color:#ea580c!important}
+  .sw4-profile-stat.yellow .sw4-profile-stat-val{color:#ca8a04!important}
+
+  /* ── Tables (neutral) ── */
+  .sw4-profile-table{width:100%!important;border-collapse:collapse!important}
+  .sw4-profile-table th,.sw4-profile-table td{text-align:left!important;padding:8px 12px!important;border-bottom:1px solid #e2e8f0!important;font-size:13px!important}
+  .sw4-profile-table th{font-weight:800!important;background:#f1f5f9!important;color:#334155!important;font-size:12px!important}
+  .sw4-profile-table tbody tr:hover{background:#f8fafc!important}
+
+  /* ── Pills (neutral) ── */
+  .sw4-pill{display:inline-block!important;padding:3px 10px!important;border-radius:20px!important;font-size:11px!important;font-weight:800!important;background:#f1f5f9!important;color:#334155!important}
+  .sw4-pill-green{background:#dcfce7!important;color:#166534!important}
+  .sw4-pill-yellow{background:#fef9c3!important;color:#854d0e!important}
+  .sw4-pill-red{background:#fee2e2!important;color:#991b1b!important}
+
+  /* ── Trend chart ── */
+  .sw4-trend-chart{margin:16px 0!important}
+  .sw4-trend-legend{display:flex!important;gap:14px!important;margin-bottom:8px!important;font-size:11px!important;font-weight:700!important;color:#475569!important}
+  .sw4-trend-legend-item{display:flex!important;align-items:center!important;gap:5px!important}
+  .sw4-trend-dot{display:inline-block!important;width:10px!important;height:10px!important;border-radius:50%!important}
+  .sw4-trend-dot.sw4-trend-sick{background:#dc2626!important}
+  .sw4-trend-dot.sw4-trend-annual{background:#059669!important}
+  .sw4-trend-dot.sw4-trend-study{background:#d97706!important}
+  .sw4-trend-bars{display:flex!important;gap:6px!important;align-items:flex-end!important;height:100px!important;padding:8px 0!important}
+  .sw4-trend-col{flex:1!important;display:flex!important;flex-direction:column!important;align-items:center!important}
+  .sw4-trend-bar-wrap{width:100%!important;max-width:48px!important;height:70px!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;gap:1px!important;margin:0 auto!important}
+  .sw4-trend-bar{border-radius:4px!important;min-height:0!important;transition:height .3s ease!important}
+  .sw4-trend-bar.sw4-trend-sick{background:#dc2626!important}
+  .sw4-trend-bar.sw4-trend-annual{background:#059669!important}
+  .sw4-trend-bar.sw4-trend-study{background:#d97706!important}
+  .sw4-trend-lbl{font-size:11px!important;font-weight:700!important;margin-top:5px!important;color:#475569!important}
+  .sw4-trend-att{font-size:10px!important;font-weight:800!important;color:#64748b!important}
+  .sw4-trend-detail-grid{margin-top:14px!important;overflow-x:auto!important}
+  .sw4-trend-table{font-size:12px!important}
+
+  /* ── Attendance badges ── */
+  .sw4-att-badge{padding:2px 10px!important;border-radius:10px!important;font-size:11px!important;font-weight:800!important}
+  .sw4-att-good{background:#dcfce7!important;color:#166534!important}
+  .sw4-att-warn{background:#fef9c3!important;color:#854d0e!important}
+  .sw4-att-bad{background:#fee2e2!important;color:#991b1b!important}
+
+  /* ── Trend arrows ── */
+  .sw4-trend-up .sw4-profile-stat-val{color:#dc2626!important}
+  .sw4-trend-down .sw4-profile-stat-val{color:#059669!important}
+  .sw4-trend-flat .sw4-profile-stat-val{color:#64748b!important}
+
+  /* ══════════════════════════════════════════
+     SVETLANA VIOLET THEME OVERRIDE
+     Only applies when data-svetlana="true"
+     ══════════════════════════════════════════ */
+  .sw4-profile-page[data-svetlana="true"]{
+    box-shadow:0 30px 100px rgba(59,7,100,.30)!important;color:#1e1b4b!important;
+  }
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-header{border-bottom-color:#e9d5ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-name{color:#3b0764!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-meta{color:#6b21a8!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-print-filters{background:linear-gradient(135deg,#faf5ff,#f3e8ff)!important;border-color:#d8b4fe!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-print-filters-title{color:#581c87!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-check{color:#3b0764!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-check input[type="checkbox"]{accent-color:#7e22ce!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-lbl{color:#581c87!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-select{border-color:#c084fc!important;color:#3b0764!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-sort{border-top-color:#e9d5ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-section h2{color:#581c87!important;border-bottom-color:#f3e8ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-stat{border-color:#e9d5ff!important;background:#faf5ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-stat-val{color:#3b0764!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-stat-lbl{color:#7c3aed!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-table th{background:#faf5ff!important;color:#581c87!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-table td{border-bottom-color:#f3e8ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-table tbody tr:hover{background:#fdf4ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-pill{background:#f3e8ff!important;color:#6b21a8!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-trend-lbl{color:#7c3aed!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-trend-att{color:#a855f7!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-trend-legend{color:#7c3aed!important}
+
+  /* ── RESPONSIVE: Tablet (max 768px) ── */
+  @media(max-width:768px){
+    .sw4-profile-backdrop{padding:20px 14px!important}
+    .sw4-profile-page{padding:24px 20px!important;border-radius:20px!important}
+    .sw4-profile-name{font-size:24px!important}
+    .sw4-profile-stats,.sw4-trend-summary{gap:8px!important}
+    .sw4-profile-stat{min-width:85px!important;padding:10px 12px!important}
+    .sw4-profile-stat-val{font-size:22px!important}
+    .sw4-trend-bars{height:90px!important}
+    .sw4-trend-bar-wrap{height:60px!important;max-width:38px!important}
+    .sw4-profile-table th,.sw4-profile-table td{padding:6px 8px!important;font-size:12px!important}
+  }
+
+  /* ── RESPONSIVE: Phone (max 480px) ── */
+  @media(max-width:480px){
+    .sw4-profile-backdrop{padding:10px 6px!important}
+    .sw4-profile-page{padding:16px 12px!important;border-radius:14px!important}
+    .sw4-profile-header{flex-direction:column!important;gap:10px!important}
+    .sw4-profile-name{font-size:20px!important}
+    .sw4-profile-meta{font-size:12px!important}
+    .sw4-profile-actions{width:100%!important}
+    .sw4-profile-actions button{flex:1!important;font-size:13px!important;padding:8px 0!important}
+    .sw4-print-filters{padding:10px 12px!important;border-radius:10px!important}
+    .sw4-filter-row{gap:6px 10px!important}
+    .sw4-filter-check{font-size:11px!important}
+    .sw4-profile-stats,.sw4-trend-summary{gap:6px!important}
+    .sw4-profile-stat{min-width:70px!important;padding:8px 10px!important;border-radius:10px!important}
+    .sw4-profile-stat-val{font-size:20px!important}
+    .sw4-profile-stat-lbl{font-size:10px!important}
+    .sw4-profile-section h2{font-size:14px!important}
+    .sw4-trend-bars{height:80px!important;gap:3px!important}
+    .sw4-trend-bar-wrap{height:50px!important;max-width:28px!important}
+    .sw4-trend-lbl{font-size:9px!important}
+    .sw4-trend-att{font-size:8px!important}
+    .sw4-trend-legend{gap:8px!important;font-size:10px!important}
+    .sw4-trend-detail-grid{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important}
+    .sw4-profile-table th,.sw4-profile-table td{padding:5px 6px!important;font-size:11px!important;white-space:nowrap!important}
+  }
+</style>
+
 <style>
   /* v18 pending style: all pending request types are white with red border/text. */
   .shift-PVL,.shift-PL,.shift-PSL,.shift-PML,.shift-PST,.shift-PTI,.shift-PTO,.shift-POT,.shift-PCODON,.shift-PCODOFF,.shift-PCOD{
