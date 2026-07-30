@@ -3527,6 +3527,399 @@
   };
 })();
 </script>
+
+<script>
+/* =========================================================
+   SW4 v20 — Staff profile detail page for charge nurses
+   Click a staff name on the roster to see their full profile
+   with leave, sick, planned leave, roster summary and print.
+   ========================================================= */
+(function(){
+
+  function sw4StaffNameCell(staff){
+    const name = escapeHtml(cleanStaffName(staff.full_name));
+    const role = escapeHtml(labelRole(staff.role));
+    const pattern = escapeHtml(staffRosterLabel(staff));
+    if(sw4IsChargeOrManager()){
+      return `<td class="sw4-staff-clickable" onclick="sw4OpenStaffProfile('${escapeHtml(staff.staff_id)}')" title="Click to view profile">
+        <span class="staff-name-line sw4-staff-link">${name}</span>
+        <span class="staff-role-line">${role}</span>
+        <span class="staff-shift-line">${pattern}</span>
+      </td>`;
+    }
+    return `<td>
+      <span class="staff-name-line">${name}</span>
+      <span class="staff-role-line">${role}</span>
+      <span class="staff-shift-line">${pattern}</span>
+    </td>`;
+  }
+
+  const prevRenderV20 = renderMonthlyRoster;
+  renderMonthlyRoster = async function(){
+    await prevRenderV20();
+    if(!sw4IsChargeOrManager()) return;
+    const rows = document.querySelectorAll('.roster-table tbody tr');
+    const grouped = appState.monthlyRosterRows || [];
+    const filtered = sw4IsChargeOrManager() ? grouped : grouped.filter(s=>!sw4IsChargeNurseRow(s));
+    const sorted = filtered.slice().sort(sw4CompareStaffRows);
+    rows.forEach((tr, i) => {
+      const staff = sorted[i];
+      if(!staff) return;
+      const td = tr.querySelector('td:first-child');
+      if(!td) return;
+      td.classList.add('sw4-staff-clickable');
+      td.setAttribute('onclick', `sw4OpenStaffProfile('${staff.staff_id}')`);
+      td.setAttribute('title', 'Click to view staff profile');
+      const nameLine = td.querySelector('.staff-name-line');
+      if(nameLine) nameLine.classList.add('sw4-staff-link');
+    });
+  };
+
+  window.sw4OpenStaffProfile = async function(staffId){
+    if(!sw4IsChargeOrManager()) return;
+    clearMessage();
+
+    const staff = findMonthlyStaff(staffId);
+    if(!staff){showError('Staff member not found.');return;}
+
+    const name = cleanStaffName(staff.full_name);
+    const role = labelRole(staff.role);
+    const pattern = staffRosterLabel(staff);
+    const monthValue = appState.selectedMonth;
+    const {start, end, days} = monthRange(monthValue);
+
+    let allLeave = [];
+    try {
+      const res = await sb.rpc('list_sw4_leave_requests_for_approver',{p_status:null});
+      if(!res.error) allLeave = (res.data||[]).filter(r => String(r.staff_id) === String(staffId));
+    } catch(e){ console.warn('Could not load leave for profile',e); }
+
+    const monthLeave = allLeave.filter(r => {
+      const d = String(r.request_date||'');
+      return d >= start && d <= end;
+    });
+
+    const approved = allLeave.filter(r => String(r.status||'').toLowerCase() === 'approved');
+    const pending = allLeave.filter(r => String(r.status||'').toLowerCase() === 'pending');
+    const rejected = allLeave.filter(r => String(r.status||'').toLowerCase() === 'rejected');
+
+    const sickAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'SL');
+    const leaveAll = approved.filter(r => ['L','VL','AL'].includes(normaliseRosterCode(r.request_code)));
+    const maternityAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'ML');
+    const studyAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'ST');
+    const tilInAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'TI');
+    const tilOutAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'TO');
+    const otAll = approved.filter(r => normaliseRosterCode(r.request_code) === 'OT');
+
+    const monthCodes = {};
+    for(const d of days){
+      const key = isoFromDate(d);
+      const r = staff.days[key];
+      const code = normaliseRosterCode(r?.live_shift_code || '');
+      if(code) monthCodes[code] = (monthCodes[code]||0) + 1;
+    }
+
+    const futureLeave = allLeave.filter(r => {
+      return String(r.request_date||'') >= todayISO() &&
+        ['approved','pending'].includes(String(r.status||'').toLowerCase());
+    }).sort((a,b) => String(a.request_date||'').localeCompare(String(b.request_date||'')));
+
+    const recentHistory = allLeave.slice().sort((a,b) =>
+      String(b.request_date||'').localeCompare(String(a.request_date||''))
+    ).slice(0, 30);
+
+    function statBox(label, count, cls){
+      return `<div class="sw4-profile-stat ${cls||''}"><div class="sw4-profile-stat-val">${count}</div><div class="sw4-profile-stat-lbl">${escapeHtml(label)}</div></div>`;
+    }
+
+    function leaveRow(r){
+      const st = String(r.status||'').toLowerCase();
+      const pill = st==='approved'?'<span class="sw4-pill sw4-pill-green">Approved</span>'
+        : st==='pending'?'<span class="sw4-pill sw4-pill-yellow">Pending</span>'
+        : st==='rejected'?'<span class="sw4-pill sw4-pill-red">Rejected</span>'
+        : `<span class="sw4-pill">${escapeHtml(r.status||'')}</span>`;
+      return `<tr>
+        <td>${escapeHtml(formatDate(r.request_date))}</td>
+        <td><span class="shift-cell shift-${escapeHtml(normaliseRosterCode(r.request_code))}" style="font-size:10px;min-width:28px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px">${escapeHtml(displayShiftCode(r.request_code))}</span> ${escapeHtml(requestCodeLabel(r.request_code))}</td>
+        <td>${r.is_hourly ? escapeHtml(`${r.start_time||'07:00'} · ${r.hours||1}h`) : 'Full day'}</td>
+        <td>${pill}</td>
+        <td>${escapeHtml(r.staff_note||'—')}</td>
+      </tr>`;
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'sw4StaffProfileBackdrop';
+    backdrop.className = 'sw4-profile-backdrop';
+    backdrop.addEventListener('click', e => { if(e.target === backdrop) sw4CloseStaffProfile(); });
+
+    backdrop.innerHTML = `
+    <div class="sw4-profile-page">
+      <div class="sw4-profile-header">
+        <div>
+          <h1 class="sw4-profile-name">${escapeHtml(name)}</h1>
+          <div class="sw4-profile-meta">${escapeHtml(role)} · Pattern: ${escapeHtml(pattern)} · Surgical Ward 4</div>
+        </div>
+        <div class="sw4-profile-actions">
+          <button type="button" class="secondary" onclick="sw4PrintStaffProfile()">Print</button>
+          <button type="button" class="secondary" onclick="sw4CloseStaffProfile()">Close</button>
+        </div>
+      </div>
+
+      <div class="sw4-profile-section">
+        <h2>Leave Summary (All Time)</h2>
+        <div class="sw4-profile-stats">
+          ${statBox('Annual Leave', leaveAll.length, 'green')}
+          ${statBox('Sick Leave', sickAll.length, 'red')}
+          ${statBox('Maternity', maternityAll.length, 'pink')}
+          ${statBox('Study', studyAll.length, 'amber')}
+          ${statBox('TIL In', tilInAll.length, 'teal')}
+          ${statBox('TIL Out', tilOutAll.length, 'cyan')}
+          ${statBox('Overtime', otAll.length, 'orange')}
+          ${statBox('Pending', pending.length, 'yellow')}
+        </div>
+      </div>
+
+      <div class="sw4-profile-section">
+        <h2>This Month — ${escapeHtml(monthLabel(monthValue))}</h2>
+        <div class="sw4-profile-stats">
+          ${statBox('Days', monthCodes['D']||0)}
+          ${statBox('Nights', monthCodes['N']||0)}
+          ${statBox('Off', monthCodes['O']||0)}
+          ${statBox('Rest', monthCodes['R']||0)}
+          ${statBox('Leave', (monthCodes['L']||0)+(monthCodes['AL']||0)+(monthCodes['VL']||0))}
+          ${statBox('Sick', monthCodes['SL']||0, 'red')}
+          ${statBox('TIL In', monthCodes['TI']||0)}
+          ${statBox('TIL Out', monthCodes['TO']||0)}
+          ${statBox('Overtime', monthCodes['OT']||0)}
+        </div>
+      </div>
+
+      ${futureLeave.length ? `
+      <div class="sw4-profile-section">
+        <h2>Upcoming / Planned</h2>
+        <div class="table-wrap">
+          <table class="sw4-profile-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Status</th><th>Note</th></tr></thead>
+            <tbody>${futureLeave.map(leaveRow).join('')}</tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      <div class="sw4-profile-section">
+        <h2>Recent Request History</h2>
+        ${recentHistory.length ? `
+        <div class="table-wrap">
+          <table class="sw4-profile-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Status</th><th>Note</th></tr></thead>
+            <tbody>${recentHistory.map(leaveRow).join('')}</tbody>
+          </table>
+        </div>` : '<div class="muted">No request history found for this staff member.</div>'}
+      </div>
+    </div>`;
+
+    const existing = document.getElementById('sw4StaffProfileBackdrop');
+    if(existing) existing.remove();
+    document.body.appendChild(backdrop);
+  };
+
+  window.sw4CloseStaffProfile = function(){
+    const el = document.getElementById('sw4StaffProfileBackdrop');
+    if(el) el.remove();
+  };
+
+  window.sw4PrintStaffProfile = function(){
+    const page = document.querySelector('.sw4-profile-page');
+    if(!page) return;
+    const win = window.open('','_blank','width=900,height=700');
+    win.document.write(`<!doctype html><html><head><title>Staff Profile — Print</title>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:Inter,Arial,sans-serif;color:#1e1b4b;padding:30px;font-size:13px;line-height:1.5}
+      h1{font-size:24px;font-weight:900;margin-bottom:4px;color:#3b0764}
+      h2{font-size:15px;font-weight:800;margin:20px 0 10px;color:#581c87;border-bottom:2px solid #e9d5ff;padding-bottom:6px}
+      .sw4-profile-meta{color:#6b21a8;font-size:13px;font-weight:700;margin-bottom:16px}
+      .sw4-profile-stats{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+      .sw4-profile-stat{border:1px solid #e5e7eb;border-radius:10px;padding:10px 14px;min-width:90px;text-align:center}
+      .sw4-profile-stat-val{font-size:22px;font-weight:900}
+      .sw4-profile-stat-lbl{font-size:11px;font-weight:700;color:#6b7280;margin-top:2px}
+      .sw4-profile-stat.red .sw4-profile-stat-val{color:#dc2626}
+      .sw4-profile-stat.green .sw4-profile-stat-val{color:#059669}
+      .sw4-profile-stat.pink .sw4-profile-stat-val{color:#ec4899}
+      .sw4-profile-stat.amber .sw4-profile-stat-val{color:#d97706}
+      .sw4-profile-stat.teal .sw4-profile-stat-val{color:#0d9488}
+      .sw4-profile-stat.cyan .sw4-profile-stat-val{color:#0891b2}
+      .sw4-profile-stat.orange .sw4-profile-stat-val{color:#ea580c}
+      .sw4-profile-stat.yellow .sw4-profile-stat-val{color:#ca8a04}
+      table{width:100%;border-collapse:collapse;margin:8px 0}
+      th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px}
+      th{font-weight:800;background:#f9fafb;color:#374151}
+      .sw4-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:800}
+      .sw4-pill-green{background:#dcfce7;color:#166534}
+      .sw4-pill-yellow{background:#fef9c3;color:#854d0e}
+      .sw4-pill-red{background:#fee2e2;color:#991b1b}
+      .sw4-profile-actions{display:none}
+      .shift-cell{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #ccc}
+      @media print{body{padding:15px}h1{font-size:20px}}
+    </style></head><body>${page.innerHTML}</body></html>`);
+    win.document.close();
+    setTimeout(()=>{ win.focus(); win.print(); }, 400);
+  };
+
+})();
+</script>
+
+<style>
+  /* SW4 v20 — Staff profile styles */
+  .sw4-staff-clickable{
+    cursor:pointer!important;
+  }
+  .sw4-staff-clickable:hover{
+    background:rgba(124,58,237,.06)!important;
+  }
+  .sw4-staff-link{
+    color:#6d28d9!important;
+    text-decoration:underline!important;
+    text-decoration-color:rgba(109,40,217,.3)!important;
+    text-underline-offset:2px!important;
+  }
+  .sw4-staff-clickable:hover .sw4-staff-link{
+    text-decoration-color:#6d28d9!important;
+  }
+
+  .sw4-profile-backdrop{
+    position:fixed!important;
+    inset:0!important;
+    z-index:9999!important;
+    background:rgba(30,10,60,.55)!important;
+    backdrop-filter:blur(6px)!important;
+    display:flex!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    padding:30px 20px!important;
+    overflow-y:auto!important;
+  }
+  .sw4-profile-page{
+    background:#fff!important;
+    border-radius:24px!important;
+    box-shadow:0 30px 100px rgba(59,7,100,.30)!important;
+    max-width:900px!important;
+    width:100%!important;
+    padding:32px!important;
+    color:#1e1b4b!important;
+  }
+  .sw4-profile-header{
+    display:flex!important;
+    justify-content:space-between!important;
+    align-items:flex-start!important;
+    gap:16px!important;
+    margin-bottom:24px!important;
+    border-bottom:2px solid #e9d5ff!important;
+    padding-bottom:18px!important;
+  }
+  .sw4-profile-name{
+    font-size:28px!important;
+    font-weight:900!important;
+    color:#3b0764!important;
+    margin:0!important;
+  }
+  .sw4-profile-meta{
+    color:#6b21a8!important;
+    font-size:14px!important;
+    font-weight:700!important;
+    margin-top:4px!important;
+  }
+  .sw4-profile-actions{
+    display:flex!important;
+    gap:8px!important;
+    flex-shrink:0!important;
+  }
+  .sw4-profile-section{
+    margin-bottom:24px!important;
+  }
+  .sw4-profile-section h2{
+    font-size:16px!important;
+    font-weight:800!important;
+    color:#581c87!important;
+    margin:0 0 12px 0!important;
+    border-bottom:2px solid #f3e8ff!important;
+    padding-bottom:8px!important;
+  }
+  .sw4-profile-stats{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:10px!important;
+  }
+  .sw4-profile-stat{
+    border:1px solid #e9d5ff!important;
+    border-radius:14px!important;
+    padding:12px 16px!important;
+    min-width:95px!important;
+    text-align:center!important;
+    background:#faf5ff!important;
+  }
+  .sw4-profile-stat-val{
+    font-size:26px!important;
+    font-weight:900!important;
+    color:#3b0764!important;
+  }
+  .sw4-profile-stat-lbl{
+    font-size:11px!important;
+    font-weight:700!important;
+    color:#7c3aed!important;
+    margin-top:2px!important;
+  }
+  .sw4-profile-stat.red .sw4-profile-stat-val{color:#dc2626!important}
+  .sw4-profile-stat.green .sw4-profile-stat-val{color:#059669!important}
+  .sw4-profile-stat.pink .sw4-profile-stat-val{color:#ec4899!important}
+  .sw4-profile-stat.amber .sw4-profile-stat-val{color:#d97706!important}
+  .sw4-profile-stat.teal .sw4-profile-stat-val{color:#0d9488!important}
+  .sw4-profile-stat.cyan .sw4-profile-stat-val{color:#0891b2!important}
+  .sw4-profile-stat.orange .sw4-profile-stat-val{color:#ea580c!important}
+  .sw4-profile-stat.yellow .sw4-profile-stat-val{color:#ca8a04!important}
+
+  .sw4-profile-table{
+    width:100%!important;
+    border-collapse:collapse!important;
+  }
+  .sw4-profile-table th,
+  .sw4-profile-table td{
+    text-align:left!important;
+    padding:8px 12px!important;
+    border-bottom:1px solid #f3e8ff!important;
+    font-size:13px!important;
+  }
+  .sw4-profile-table th{
+    font-weight:800!important;
+    background:#faf5ff!important;
+    color:#581c87!important;
+    font-size:12px!important;
+  }
+  .sw4-profile-table tbody tr:hover{
+    background:#fdf4ff!important;
+  }
+
+  .sw4-pill{
+    display:inline-block!important;
+    padding:3px 10px!important;
+    border-radius:20px!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    background:#f3e8ff!important;
+    color:#6b21a8!important;
+  }
+  .sw4-pill-green{background:#dcfce7!important;color:#166534!important}
+  .sw4-pill-yellow{background:#fef9c3!important;color:#854d0e!important}
+  .sw4-pill-red{background:#fee2e2!important;color:#991b1b!important}
+
+  @media(max-width:640px){
+    .sw4-profile-page{padding:18px!important;border-radius:16px!important}
+    .sw4-profile-header{flex-direction:column!important}
+    .sw4-profile-name{font-size:22px!important}
+    .sw4-profile-stats{gap:8px!important}
+    .sw4-profile-stat{min-width:80px!important;padding:10px!important}
+  }
+</style>
+
 <style>
   /* v18 pending style: all pending request types are white with red border/text. */
   .shift-PVL,.shift-PL,.shift-PSL,.shift-PML,.shift-PST,.shift-PTI,.shift-PTO,.shift-POT,.shift-PCODON,.shift-PCODOFF,.shift-PCOD{
