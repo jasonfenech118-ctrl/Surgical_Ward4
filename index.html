@@ -3546,5 +3546,370 @@
   }
 </style>
 
+<style>
+  /* =========================================================
+     SW4 v19 — Pink / Lilac / Violet app theme
+     + fully unique shift colours for legend & roster
+     ========================================================= */
+
+  /* ── App page theme: pink, lilac, violet ── */
+  body{
+    background:
+      radial-gradient(circle at top right, rgba(192,132,252,.18), transparent 380px),
+      linear-gradient(180deg,#faf5ff 0%,#f5f0ff 320px,#faf7ff 100%)!important;
+    color:#2e1065!important;
+  }
+
+  html body header{
+    background:linear-gradient(90deg,#581c87 0%,#7e22ce 55%,#a855f7 100%)!important;
+    border-bottom:1px solid rgba(255,255,255,.12)!important;
+    box-shadow:0 12px 32px rgba(88,28,135,.25)!important;
+  }
+
+  html body header .brand-title{
+    color:#ffffff!important;
+  }
+  html body header .brand-subtitle{
+    color:#e9d5ff!important;
+  }
+
+  html body header .top-user{
+    color:#e9d5ff!important;
+  }
+  html body header .top-user strong{
+    color:#fae8ff!important;
+  }
+  html body header .top-user .role-inline{
+    color:#f5d0fe!important;
+  }
+  .sw4-header-ward,.sw4-header-name{
+    color:#fae8ff!important;
+  }
+
+  /* Sidebar */
+  html body .tabs{
+    background:
+      linear-gradient(180deg,rgba(59,7,100,.98),rgba(88,28,135,.98)),
+      radial-gradient(circle at 100% 0%,rgba(232,121,249,.18),transparent 250px)!important;
+    box-shadow:10px 0 34px rgba(59,7,100,.22)!important;
+  }
+  html body .tabs:before{
+    color:#d8b4fe!important;
+  }
+  html body .tab{
+    color:#e9d5ff!important;
+  }
+  html body .tab:hover{
+    background:rgba(255,255,255,.08)!important;
+    color:#fff!important;
+  }
+  html body .tab.active{
+    background:linear-gradient(135deg,rgba(168,85,247,.95),rgba(232,121,249,.80))!important;
+    color:#fff!important;
+    border-color:rgba(255,255,255,.20)!important;
+    box-shadow:0 12px 26px rgba(168,85,247,.28)!important;
+  }
+  html body .tab .nav-icon{
+    background:rgba(255,255,255,.10)!important;
+    border-color:rgba(255,255,255,.12)!important;
+    color:#d8b4fe!important;
+  }
+  html body .tab.active .nav-icon{
+    background:rgba(255,255,255,.22)!important;
+    color:#fff!important;
+  }
+
+  /* Cards */
+  html body .card,
+  html body .stat,
+  html body .chart-card{
+    border-color:#e9d5ff!important;
+    box-shadow:0 12px 34px rgba(88,28,135,.07)!important;
+  }
+  html body .card{
+    background:rgba(255,255,255,.96)!important;
+  }
+  html body #appScreen > .card:first-child{
+    background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(250,245,255,.95))!important;
+    box-shadow:0 14px 42px rgba(88,28,135,.08)!important;
+  }
+  .roster-hero{
+    background:#fff!important;
+  }
+  .roster-hero h2{
+    color:#7c3aed!important;
+  }
+  .roster-hero h1{
+    color:#3b0764!important;
+  }
+  .roster-month-focus{
+    color:#7c3aed!important;
+  }
+
+  /* Stat cards */
+  .stat:before{
+    background:rgba(168,85,247,.12)!important;
+  }
+  .stat-value{
+    color:#3b0764!important;
+  }
+  .stat-label{
+    color:#7c3aed!important;
+  }
+
+  /* Buttons */
+  html body button{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
+    box-shadow:0 10px 22px rgba(124,58,237,.20)!important;
+    border:1px solid rgba(124,58,237,.15)!important;
+  }
+  html body button:hover{
+    background:linear-gradient(135deg,#6d28d9,#9333ea)!important;
+  }
+  html body button.secondary{
+    background:#fff!important;
+    color:#3b0764!important;
+    border:1px solid #e9d5ff!important;
+    box-shadow:0 8px 18px rgba(88,28,135,.06)!important;
+  }
+  html body button.secondary:hover{
+    background:#faf5ff!important;
+    border-color:#c084fc!important;
+  }
+  html body button.secondary.active{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
+    border-color:rgba(124,58,237,.15)!important;
+  }
+  html body button.success{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
+  }
+  html body button.danger{
+    background:linear-gradient(135deg,#be123c,#e11d48)!important;
+    color:#fff!important;
+  }
+
+  /* Login card */
+  #loginScreen .card{
+    border-color:#e9d5ff!important;
+    box-shadow:0 16px 48px rgba(88,28,135,.12)!important;
+  }
+
+  /* Muted text */
+  html body .muted{
+    color:#6b21a8!important;
+  }
+
+  /* Today column */
+  .today-col{
+    border-color:#a855f7!important;
+  }
+
+  /* Staff shift line */
+  html body .staff-shift-line{
+    color:#7c3aed!important;
+  }
+
+  /* Record filter buttons */
+  html body .sw4-record-filter-row button.active{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
+  }
+
+  /* Self staff chip */
+  html body .sw4-self-staff-chip{
+    color:#7c3aed!important;
+    background:#faf5ff!important;
+    border-color:#e9d5ff!important;
+  }
+
+  /* Modal */
+  html body .shift-modal{
+    border-color:#e9d5ff!important;
+  }
+  html body .shift-choice-btn.active{
+    background:#faf5ff!important;
+    border-color:#a855f7!important;
+    outline-color:rgba(168,85,247,.18)!important;
+  }
+  html body .sw4-single-save-row .success{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+  }
+
+  /* ── Shift colours: every type is unique ── */
+
+  /* Day — steel blue */
+  .shift-D,.shift-M,.shift-E{
+    background:#2563eb!important;color:#fff!important;border-color:#1d4ed8!important;
+  }
+  /* Night — deep indigo */
+  .shift-N{
+    background:#4c1d95!important;color:#fff!important;border-color:#3b0764!important;
+  }
+  /* Off — pale lavender */
+  .shift-O{
+    background:#f1f0ff!important;color:#6d28d9!important;border-color:#ddd6fe!important;
+  }
+  /* Rest — warm peach */
+  .shift-R{
+    background:#ffedd5!important;color:#9a3412!important;border-color:#fdba74!important;
+  }
+  /* Leave — emerald green */
+  .shift-L,.shift-AL{
+    background:#059669!important;color:#fff!important;border-color:#047857!important;
+  }
+  /* Sick Leave — bold red */
+  .shift-SL{
+    background:#dc2626!important;color:#fff!important;border-color:#b91c1c!important;
+  }
+  /* Maternity — hot pink */
+  .shift-ML{
+    background:#ec4899!important;color:#fff!important;border-color:#db2777!important;
+  }
+  /* Study — golden amber */
+  .shift-ST{
+    background:#d97706!important;color:#fff!important;border-color:#b45309!important;
+  }
+  /* TIL In — teal */
+  .shift-TI{
+    background:#0d9488!important;color:#fff!important;border-color:#0f766e!important;
+  }
+  /* TIL Out — cyan blue */
+  .shift-TO{
+    background:#0891b2!important;color:#fff!important;border-color:#0e7490!important;
+  }
+  /* Overtime — burnt orange */
+  .shift-OT{
+    background:#ea580c!important;color:#fff!important;border-color:#c2410c!important;
+  }
+  /* Vacation — forest green */
+  .shift-VL{
+    background:#15803d!important;color:#fff!important;border-color:#166534!important;
+  }
+  /* Pending Leave — yellow highlight */
+  .shift-PL{
+    background:#fef9c3!important;color:#854d0e!important;border-color:#facc15!important;
+  }
+  /* Approved Leave — dark green */
+  .shift-APP,.shift-ALV{
+    background:#166534!important;color:#fff!important;border-color:#14532d!important;
+  }
+  /* Approved TIL In */
+  .shift-ATI{
+    background:#115e59!important;color:#fff!important;border-color:#134e4a!important;
+  }
+  /* Approved TIL Out */
+  .shift-ATO{
+    background:#075985!important;color:#fff!important;border-color:#0c4a6e!important;
+  }
+  /* Approved Overtime */
+  .shift-AOT{
+    background:#9a3412!important;color:#fff!important;border-color:#7c2d12!important;
+  }
+  /* COD on — magenta */
+  .shift-CODON{
+    background:#be185d!important;color:#fff!important;border-color:#9d174d!important;
+  }
+  /* COD off — charcoal */
+  .shift-CODOFF{
+    background:#475569!important;color:#fff!important;border-color:#334155!important;
+  }
+  /* Long Leave — stone */
+  .shift-LL{
+    background:#78716c!important;color:#fff!important;border-color:#57534e!important;
+  }
+
+  /* ── Legend layout ── */
+  html body .legend-compact{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:12px 22px!important;
+    align-items:center!important;
+    padding:16px 20px!important;
+    background:linear-gradient(135deg,#faf5ff,#fdf4ff)!important;
+    border-radius:14px!important;
+    border:1px solid #e9d5ff!important;
+  }
+  html body .legend-compact > span{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:7px!important;
+    font-weight:750!important;
+    font-size:13px!important;
+    color:#3b0764!important;
+  }
+  html body .legend-compact .shift-cell,
+  html body .legend-compact.sw4-clean-legend .shift-cell{
+    min-width:36px!important;
+    height:28px!important;
+    padding:0 9px!important;
+    border-radius:9px!important;
+    font-size:11.5px!important;
+    font-weight:800!important;
+    letter-spacing:.3px!important;
+    box-shadow:0 2px 6px rgba(88,28,135,.20)!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+
+  /* KPI planning nav */
+  html body .sw4-planning-nav button.active{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
+  }
+
+  /* COD marks */
+  html body .cod-on{
+    background:#fce7f3!important;color:#be185d!important;border-color:#f9a8d4!important;
+  }
+  html body .cod-off{
+    background:#f1f5f9!important;color:#475569!important;border-color:#cbd5e1!important;
+  }
+</style>
+
+<script>
+/* SW4 v19 — Apply violet theme to header after all branding JS runs */
+(function(){
+  function applyVioletTheme(){
+    const h = document.querySelector('header');
+    if(h) h.style.cssText += ';background:linear-gradient(90deg,#581c87 0%,#7e22ce 55%,#a855f7 100%)!important;border-bottom:1px solid rgba(255,255,255,.12)!important;box-shadow:0 12px 32px rgba(88,28,135,.25)!important;';
+
+    const brandTitle = document.querySelector('.brand-title');
+    if(brandTitle) brandTitle.style.cssText += ';color:#ffffff!important;';
+
+    const topUser = document.getElementById('topUser');
+    if(topUser) topUser.style.cssText += ';color:#e9d5ff!important;';
+
+    document.querySelectorAll('.top-user strong, .sw4-header-ward, .sw4-header-name').forEach(el=>{
+      el.style.cssText += ';color:#fae8ff!important;';
+    });
+    document.querySelectorAll('.top-user .role-inline').forEach(el=>{
+      el.style.cssText += ';color:#f5d0fe!important;';
+    });
+  }
+
+  const origSw4Apply = typeof sw4ApplyHeaderBranding === 'function' ? sw4ApplyHeaderBranding : null;
+  if(origSw4Apply){
+    sw4ApplyHeaderBranding = function(){ origSw4Apply(); applyVioletTheme(); };
+  }
+  const origSw4V16 = typeof sw4V16CleanHeader === 'function' ? sw4V16CleanHeader : null;
+  if(origSw4V16){
+    sw4V16CleanHeader = function(){ origSw4V16(); applyVioletTheme(); };
+  }
+
+  const origShowApp = typeof showApp === 'function' ? showApp : null;
+  if(origShowApp){
+    showApp = function(){ origShowApp(); applyVioletTheme(); };
+  }
+
+  document.addEventListener('DOMContentLoaded', applyVioletTheme);
+  setTimeout(applyVioletTheme, 50);
+  setTimeout(applyVioletTheme, 300);
+})();
+</script>
+
 </body>
 </html>
