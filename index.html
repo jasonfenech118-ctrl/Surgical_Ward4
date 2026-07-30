@@ -3548,94 +3548,265 @@
 
 <style>
   /* =========================================================
-     SW4 v19 — Distinct colour palette & improved legend
-     Each shift type now has a unique, clearly distinguishable
-     colour that is easy to tell apart at a glance on the roster.
+     SW4 v19 — Pink / Lilac / Violet app theme
+     + fully unique shift colours for legend & roster
      ========================================================= */
 
-  /* --- Core shifts --- */
-  .shift-D,.shift-M,.shift-E{
-    background:#1e40af!important;color:#fff!important;border-color:#1e3a8a!important;
+  /* ── App page theme: pink, lilac, violet ── */
+  body{
+    background:
+      radial-gradient(circle at top right, rgba(192,132,252,.18), transparent 380px),
+      linear-gradient(180deg,#faf5ff 0%,#f5f0ff 320px,#faf7ff 100%)!important;
+    color:#2e1065!important;
   }
+
+  header{
+    background:linear-gradient(90deg,#581c87 0%,#7e22ce 55%,#a855f7 100%)!important;
+    border-bottom:1px solid rgba(255,255,255,.12)!important;
+    box-shadow:0 12px 32px rgba(88,28,135,.25)!important;
+  }
+
+  .brand-title{
+    color:#ffffff!important;
+  }
+  .brand-subtitle{
+    color:#e9d5ff!important;
+  }
+  .brand:before{
+    background:
+      linear-gradient(135deg,rgba(232,121,249,.95),rgba(192,38,211,.95)),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1.5'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1.5'/%3E%3C/svg%3E") center/20px 20px no-repeat!important;
+    box-shadow:0 10px 22px rgba(192,38,211,.28)!important;
+  }
+
+  .top-user{
+    color:#e9d5ff!important;
+  }
+  .top-user strong{
+    color:#fae8ff!important;
+  }
+  .top-user .role-inline{
+    color:#f5d0fe!important;
+  }
+
+  /* Sidebar */
+  .tabs{
+    background:
+      linear-gradient(180deg,rgba(59,7,100,.98),rgba(88,28,135,.98)),
+      radial-gradient(circle at 100% 0%,rgba(232,121,249,.18),transparent 250px)!important;
+    box-shadow:10px 0 34px rgba(59,7,100,.22)!important;
+  }
+  .tabs:before{
+    color:#d8b4fe!important;
+  }
+  .tab{
+    color:#e9d5ff!important;
+  }
+  .tab:hover{
+    background:rgba(255,255,255,.08)!important;
+    color:#fff!important;
+  }
+  .tab.active{
+    background:linear-gradient(135deg,rgba(168,85,247,.95),rgba(232,121,249,.80))!important;
+    color:#fff!important;
+    border-color:rgba(255,255,255,.20)!important;
+    box-shadow:0 12px 26px rgba(168,85,247,.28)!important;
+  }
+  .tab .nav-icon{
+    background:rgba(255,255,255,.10)!important;
+    border-color:rgba(255,255,255,.12)!important;
+    color:#d8b4fe!important;
+  }
+  .tab.active .nav-icon{
+    background:rgba(255,255,255,.22)!important;
+    color:#fff!important;
+  }
+
+  /* Cards */
+  .card,
+  .stat,
+  .chart-card,
+  .rp-card,
+  .rp-box{
+    border-color:#e9d5ff!important;
+    box-shadow:0 12px 34px rgba(88,28,135,.07)!important;
+  }
+  .card{
+    background:rgba(255,255,255,.96)!important;
+  }
+  #appScreen > .card:first-child{
+    background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(250,245,255,.95))!important;
+    box-shadow:0 14px 42px rgba(88,28,135,.08)!important;
+  }
+  .roster-hero{
+    background:#fff!important;
+  }
+  .roster-hero h2{
+    color:#7c3aed!important;
+  }
+  .roster-hero h1{
+    color:#3b0764!important;
+  }
+  .roster-month-focus{
+    color:#7c3aed!important;
+  }
+
+  /* Stat cards */
+  .stat:before{
+    background:rgba(168,85,247,.12)!important;
+  }
+  .stat-value{
+    color:#3b0764!important;
+  }
+  .stat-label{
+    color:#7c3aed!important;
+  }
+
+  /* Buttons */
+  button{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
+    box-shadow:0 10px 22px rgba(124,58,237,.20)!important;
+    border:1px solid rgba(124,58,237,.15)!important;
+  }
+  button:hover{
+    background:linear-gradient(135deg,#6d28d9,#9333ea)!important;
+  }
+  button.secondary{
+    background:#fff!important;
+    color:#3b0764!important;
+    border:1px solid #e9d5ff!important;
+    box-shadow:0 8px 18px rgba(88,28,135,.06)!important;
+  }
+  button.secondary:hover{
+    background:#faf5ff!important;
+    border-color:#c084fc!important;
+  }
+  button.secondary.active{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
+    border-color:rgba(124,58,237,.15)!important;
+  }
+  button.success{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
+  }
+  button.danger{
+    background:linear-gradient(135deg,#be123c,#e11d48)!important;
+    color:#fff!important;
+  }
+
+  /* Login card */
+  #loginScreen .card{
+    border-color:#e9d5ff!important;
+    box-shadow:0 16px 48px rgba(88,28,135,.12)!important;
+  }
+
+  /* Muted text */
+  .muted{
+    color:#7c3aed!important;
+    opacity:.7;
+  }
+
+  /* Today column */
+  .today-col{
+    border-color:#a855f7!important;
+  }
+
+  /* ── Shift colours: every type is unique ── */
+
+  /* Day — deep navy */
+  .shift-D,.shift-M,.shift-E{
+    background:#1e3a5f!important;color:#fff!important;border-color:#162d4a!important;
+  }
+  /* Night — rich purple */
   .shift-N{
     background:#7c3aed!important;color:#fff!important;border-color:#5b21b6!important;
     box-shadow:0 1px 0 rgba(91,33,182,.25)!important;
   }
+  /* Off — pale cool grey */
   .shift-O{
     background:#e2e8f0!important;color:#64748b!important;border-color:#cbd5e1!important;
   }
+  /* Rest — warm sand */
   .shift-R{
-    background:#fef3c7!important;color:#92400e!important;border-color:#fbbf24!important;
+    background:#fef3c7!important;color:#92400e!important;border-color:#fcd34d!important;
   }
-
-  /* --- Leave types — each a distinct hue --- */
+  /* Leave — emerald green */
   .shift-L,.shift-AL{
-    background:#16a34a!important;color:#fff!important;border-color:#15803d!important;
+    background:#059669!important;color:#fff!important;border-color:#047857!important;
   }
+  /* Sick Leave — bold red */
   .shift-SL{
     background:#dc2626!important;color:#fff!important;border-color:#b91c1c!important;
   }
+  /* Maternity — hot pink */
   .shift-ML{
-    background:#c026d3!important;color:#fff!important;border-color:#a21caf!important;
+    background:#ec4899!important;color:#fff!important;border-color:#db2777!important;
   }
+  /* Study — cobalt blue */
   .shift-ST{
     background:#2563eb!important;color:#fff!important;border-color:#1d4ed8!important;
   }
-
-  /* --- TIL & Overtime — warm/cool contrast --- */
+  /* TIL In — teal */
   .shift-TI{
     background:#0d9488!important;color:#fff!important;border-color:#0f766e!important;
   }
+  /* TIL Out — sky blue */
   .shift-TO{
-    background:#0891b2!important;color:#fff!important;border-color:#0e7490!important;
+    background:#0ea5e9!important;color:#fff!important;border-color:#0284c7!important;
   }
+  /* Overtime — burnt orange */
   .shift-OT{
     background:#ea580c!important;color:#fff!important;border-color:#c2410c!important;
   }
-
-  /* --- Vacation, Approved, Pending --- */
+  /* Vacation — forest green */
   .shift-VL{
-    background:#059669!important;color:#fff!important;border-color:#047857!important;
-  }
-  .shift-APP,.shift-ALV{
     background:#15803d!important;color:#fff!important;border-color:#166534!important;
   }
-  .shift-ATI{
-    background:#0f766e!important;color:#fff!important;border-color:#115e59!important;
-  }
-  .shift-ATO{
-    background:#0e7490!important;color:#fff!important;border-color:#155e75!important;
-  }
-  .shift-AOT{
-    background:#c2410c!important;color:#fff!important;border-color:#9a3412!important;
-  }
+  /* Pending Leave — yellow highlight */
   .shift-PL{
     background:#fef9c3!important;color:#854d0e!important;border-color:#facc15!important;
   }
-
-  /* --- COD --- */
+  /* Approved Leave — dark green */
+  .shift-APP,.shift-ALV{
+    background:#166534!important;color:#fff!important;border-color:#14532d!important;
+  }
+  /* Approved TIL In */
+  .shift-ATI{
+    background:#115e59!important;color:#fff!important;border-color:#134e4a!important;
+  }
+  /* Approved TIL Out */
+  .shift-ATO{
+    background:#075985!important;color:#fff!important;border-color:#0c4a6e!important;
+  }
+  /* Approved Overtime */
+  .shift-AOT{
+    background:#9a3412!important;color:#fff!important;border-color:#7c2d12!important;
+  }
+  /* COD on — rose */
   .shift-CODON{
     background:#be185d!important;color:#fff!important;border-color:#9d174d!important;
   }
+  /* COD off — dark slate */
   .shift-CODOFF{
     background:#475569!important;color:#fff!important;border-color:#334155!important;
   }
-
-  /* --- Long leave --- */
+  /* Long Leave — muted grey */
   .shift-LL{
-    background:#a3a3a3!important;color:#fff!important;border-color:#737373!important;
+    background:#78716c!important;color:#fff!important;border-color:#57534e!important;
   }
 
-  /* --- Legend layout --- */
+  /* ── Legend layout ── */
   .legend-compact{
     display:flex!important;
     flex-wrap:wrap!important;
     gap:10px 20px!important;
     align-items:center!important;
     padding:14px 18px!important;
-    background:#f8fafc!important;
-    border-radius:12px!important;
-    border:1px solid #e2e8f0!important;
+    background:linear-gradient(135deg,#faf5ff,#fdf4ff)!important;
+    border-radius:14px!important;
+    border:1px solid #e9d5ff!important;
   }
   .legend-compact > span{
     display:inline-flex!important;
@@ -3643,7 +3814,7 @@
     gap:6px!important;
     font-weight:700!important;
     font-size:12px!important;
-    color:#334155!important;
+    color:#3b0764!important;
   }
   .legend-compact .shift-cell,
   .legend-compact.sw4-clean-legend .shift-cell{
@@ -3654,10 +3825,16 @@
     font-size:11px!important;
     font-weight:800!important;
     letter-spacing:.3px!important;
-    box-shadow:0 2px 4px rgba(15,23,42,.15)!important;
+    box-shadow:0 2px 4px rgba(88,28,135,.18)!important;
     display:inline-flex!important;
     align-items:center!important;
     justify-content:center!important;
+  }
+
+  /* KPI planning nav */
+  .sw4-planning-nav button.active{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;
+    color:#fff!important;
   }
 </style>
 
