@@ -3561,9 +3561,8 @@
     const rows = document.querySelectorAll('.roster-table tbody tr');
     const grouped = appState.monthlyRosterRows || [];
     const filtered = sw4IsChargeOrManager() ? grouped : grouped.filter(s=>!sw4IsChargeNurseRow(s));
-    const sorted = filtered.slice().sort(sw4CompareStaffRows);
     rows.forEach((tr, i) => {
-      const staff = sorted[i];
+      const staff = filtered[i];
       if(!staff) return;
       const td = tr.querySelector('td:first-child');
       if(!td) return;
