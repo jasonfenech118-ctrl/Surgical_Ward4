@@ -4249,6 +4249,143 @@
 
 </style>
 
+<style>
+  /* =========================================================
+     SW4 v22 — Violet app theme scoped to Svetlana only
+     Activated via body.sw4-svetlana-theme class
+     ========================================================= */
+
+  body.sw4-svetlana-theme{
+    background:
+      radial-gradient(circle at top right, rgba(192,132,252,.18), transparent 380px),
+      linear-gradient(180deg,#faf5ff 0%,#f5f0ff 320px,#faf7ff 100%)!important;
+    color:#2e1065!important;
+  }
+  body.sw4-svetlana-theme header{
+    background:linear-gradient(90deg,#581c87 0%,#7e22ce 55%,#a855f7 100%)!important;
+    border-bottom:1px solid rgba(255,255,255,.12)!important;
+    box-shadow:0 12px 32px rgba(88,28,135,.25)!important;
+  }
+  body.sw4-svetlana-theme header .brand-title{color:#fff!important}
+  body.sw4-svetlana-theme header .brand-subtitle{color:#e9d5ff!important}
+  body.sw4-svetlana-theme header .top-user{color:#e9d5ff!important}
+  body.sw4-svetlana-theme header .top-user strong{color:#fae8ff!important}
+  body.sw4-svetlana-theme header .top-user .role-inline{color:#f5d0fe!important}
+  body.sw4-svetlana-theme .sw4-header-ward,
+  body.sw4-svetlana-theme .sw4-header-name{color:#fae8ff!important}
+
+  body.sw4-svetlana-theme .tabs{
+    background:linear-gradient(180deg,rgba(59,7,100,.98),rgba(88,28,135,.98))!important;
+    box-shadow:10px 0 34px rgba(59,7,100,.22)!important;
+  }
+  body.sw4-svetlana-theme .tabs:before{color:#d8b4fe!important}
+  body.sw4-svetlana-theme .tab{color:#e9d5ff!important}
+  body.sw4-svetlana-theme .tab:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
+  body.sw4-svetlana-theme .tab.active{
+    background:linear-gradient(135deg,rgba(168,85,247,.95),rgba(232,121,249,.80))!important;
+    color:#fff!important;border-color:rgba(255,255,255,.20)!important;
+    box-shadow:0 12px 26px rgba(168,85,247,.28)!important;
+  }
+  body.sw4-svetlana-theme .tab .nav-icon{background:rgba(255,255,255,.10)!important;border-color:rgba(255,255,255,.12)!important;color:#d8b4fe!important}
+  body.sw4-svetlana-theme .tab.active .nav-icon{background:rgba(255,255,255,.22)!important;color:#fff!important}
+
+  body.sw4-svetlana-theme .card,
+  body.sw4-svetlana-theme .stat,
+  body.sw4-svetlana-theme .chart-card{border-color:#e9d5ff!important;box-shadow:0 12px 34px rgba(88,28,135,.07)!important}
+  body.sw4-svetlana-theme .card{background:rgba(255,255,255,.96)!important}
+  body.sw4-svetlana-theme #appScreen > .card:first-child{
+    background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(250,245,255,.95))!important;
+    box-shadow:0 14px 42px rgba(88,28,135,.08)!important;
+  }
+  body.sw4-svetlana-theme .roster-hero{background:#fff!important}
+  body.sw4-svetlana-theme .roster-hero h2{color:#7c3aed!important}
+  body.sw4-svetlana-theme .roster-hero h1{color:#3b0764!important}
+  body.sw4-svetlana-theme .roster-month-focus{color:#7c3aed!important}
+
+  body.sw4-svetlana-theme .stat:before{background:rgba(168,85,247,.12)!important}
+  body.sw4-svetlana-theme .stat-value{color:#3b0764!important}
+  body.sw4-svetlana-theme .stat-label{color:#7c3aed!important}
+
+  body.sw4-svetlana-theme button{
+    background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important;
+    box-shadow:0 10px 22px rgba(124,58,237,.20)!important;border:1px solid rgba(124,58,237,.15)!important;
+  }
+  body.sw4-svetlana-theme button:hover{background:linear-gradient(135deg,#6d28d9,#9333ea)!important}
+  body.sw4-svetlana-theme button.secondary{background:#fff!important;color:#3b0764!important;border:1px solid #e9d5ff!important;box-shadow:0 8px 18px rgba(88,28,135,.06)!important}
+  body.sw4-svetlana-theme button.secondary:hover{background:#faf5ff!important;border-color:#c084fc!important}
+  body.sw4-svetlana-theme button.secondary.active{background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important;border-color:rgba(124,58,237,.15)!important}
+  body.sw4-svetlana-theme button.success{background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important}
+  body.sw4-svetlana-theme button.danger{background:linear-gradient(135deg,#be123c,#e11d48)!important;color:#fff!important}
+
+  body.sw4-svetlana-theme #loginScreen .card{border-color:#e9d5ff!important;box-shadow:0 16px 48px rgba(88,28,135,.12)!important}
+  body.sw4-svetlana-theme .muted{color:#6b21a8!important}
+  body.sw4-svetlana-theme .today-col{border-color:#a855f7!important}
+  body.sw4-svetlana-theme .staff-shift-line{color:#7c3aed!important}
+  body.sw4-svetlana-theme .sw4-record-filter-row button.active{background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important}
+  body.sw4-svetlana-theme .sw4-self-staff-chip{color:#7c3aed!important;background:#faf5ff!important;border-color:#e9d5ff!important}
+  body.sw4-svetlana-theme .shift-modal{border-color:#e9d5ff!important}
+  body.sw4-svetlana-theme .shift-choice-btn.active{background:#faf5ff!important;border-color:#a855f7!important;outline-color:rgba(168,85,247,.18)!important}
+  body.sw4-svetlana-theme .sw4-single-save-row .success{background:linear-gradient(135deg,#7c3aed,#a855f7)!important}
+  body.sw4-svetlana-theme .sw4-planning-nav button.active{background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important}
+
+  body.sw4-svetlana-theme .legend-compact{
+    background:linear-gradient(135deg,#faf5ff,#fdf4ff)!important;
+    border:1px solid #e9d5ff!important;
+  }
+  body.sw4-svetlana-theme .legend-compact > span{color:#3b0764!important}
+  body.sw4-svetlana-theme .legend-compact .shift-cell{box-shadow:0 2px 6px rgba(88,28,135,.20)!important}
+</style>
+
+<script>
+/* SW4 v22 — Apply violet theme only when Svetlana is logged in */
+(function(){
+  function isSvetlana(){
+    const name = (appState?.profile?.full_name || '').trim().toLowerCase();
+    return name.includes('svetlana');
+  }
+
+  function applyThemeClass(){
+    if(isSvetlana()){
+      document.body.classList.add('sw4-svetlana-theme');
+    } else {
+      document.body.classList.remove('sw4-svetlana-theme');
+    }
+  }
+
+  function applyVioletHeader(){
+    if(!isSvetlana()) return;
+    const h = document.querySelector('header');
+    if(h) h.style.cssText += ';background:linear-gradient(90deg,#581c87 0%,#7e22ce 55%,#a855f7 100%)!important;border-bottom:1px solid rgba(255,255,255,.12)!important;box-shadow:0 12px 32px rgba(88,28,135,.25)!important;';
+    const brandTitle = document.querySelector('.brand-title');
+    if(brandTitle) brandTitle.style.cssText += ';color:#ffffff!important;';
+    const topUser = document.getElementById('topUser');
+    if(topUser) topUser.style.cssText += ';color:#e9d5ff!important;';
+    document.querySelectorAll('.top-user strong, .sw4-header-ward, .sw4-header-name').forEach(el=>{
+      el.style.cssText += ';color:#fae8ff!important;';
+    });
+    document.querySelectorAll('.top-user .role-inline').forEach(el=>{
+      el.style.cssText += ';color:#f5d0fe!important;';
+    });
+  }
+
+  const origBranding = typeof sw4ApplyHeaderBranding === 'function' ? sw4ApplyHeaderBranding : null;
+  if(origBranding){
+    sw4ApplyHeaderBranding = function(){ origBranding(); applyThemeClass(); applyVioletHeader(); };
+  }
+  const origClean = typeof sw4V16CleanHeader === 'function' ? sw4V16CleanHeader : null;
+  if(origClean){
+    sw4V16CleanHeader = function(){ origClean(); applyThemeClass(); applyVioletHeader(); };
+  }
+  const origShow = typeof showApp === 'function' ? showApp : null;
+  if(origShow){
+    showApp = function(){ origShow(); applyThemeClass(); applyVioletHeader(); };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){ applyThemeClass(); applyVioletHeader(); });
+  setTimeout(function(){ applyThemeClass(); applyVioletHeader(); }, 50);
+  setTimeout(function(){ applyThemeClass(); applyVioletHeader(); }, 300);
+})();
+</script>
 
 </body>
 </html>
