@@ -3546,5 +3546,120 @@
   }
 </style>
 
+<style>
+  /* =========================================================
+     SW4 v19 — Distinct colour palette & improved legend
+     Each shift type now has a unique, clearly distinguishable
+     colour that is easy to tell apart at a glance on the roster.
+     ========================================================= */
+
+  /* --- Core shifts --- */
+  .shift-D,.shift-M,.shift-E{
+    background:#1e40af!important;color:#fff!important;border-color:#1e3a8a!important;
+  }
+  .shift-N{
+    background:#7c3aed!important;color:#fff!important;border-color:#5b21b6!important;
+    box-shadow:0 1px 0 rgba(91,33,182,.25)!important;
+  }
+  .shift-O{
+    background:#e2e8f0!important;color:#64748b!important;border-color:#cbd5e1!important;
+  }
+  .shift-R{
+    background:#fef3c7!important;color:#92400e!important;border-color:#fbbf24!important;
+  }
+
+  /* --- Leave types — each a distinct hue --- */
+  .shift-L,.shift-AL{
+    background:#16a34a!important;color:#fff!important;border-color:#15803d!important;
+  }
+  .shift-SL{
+    background:#dc2626!important;color:#fff!important;border-color:#b91c1c!important;
+  }
+  .shift-ML{
+    background:#c026d3!important;color:#fff!important;border-color:#a21caf!important;
+  }
+  .shift-ST{
+    background:#2563eb!important;color:#fff!important;border-color:#1d4ed8!important;
+  }
+
+  /* --- TIL & Overtime — warm/cool contrast --- */
+  .shift-TI{
+    background:#0d9488!important;color:#fff!important;border-color:#0f766e!important;
+  }
+  .shift-TO{
+    background:#0891b2!important;color:#fff!important;border-color:#0e7490!important;
+  }
+  .shift-OT{
+    background:#ea580c!important;color:#fff!important;border-color:#c2410c!important;
+  }
+
+  /* --- Vacation, Approved, Pending --- */
+  .shift-VL{
+    background:#059669!important;color:#fff!important;border-color:#047857!important;
+  }
+  .shift-APP,.shift-ALV{
+    background:#15803d!important;color:#fff!important;border-color:#166534!important;
+  }
+  .shift-ATI{
+    background:#0f766e!important;color:#fff!important;border-color:#115e59!important;
+  }
+  .shift-ATO{
+    background:#0e7490!important;color:#fff!important;border-color:#155e75!important;
+  }
+  .shift-AOT{
+    background:#c2410c!important;color:#fff!important;border-color:#9a3412!important;
+  }
+  .shift-PL{
+    background:#fef9c3!important;color:#854d0e!important;border-color:#facc15!important;
+  }
+
+  /* --- COD --- */
+  .shift-CODON{
+    background:#be185d!important;color:#fff!important;border-color:#9d174d!important;
+  }
+  .shift-CODOFF{
+    background:#475569!important;color:#fff!important;border-color:#334155!important;
+  }
+
+  /* --- Long leave --- */
+  .shift-LL{
+    background:#a3a3a3!important;color:#fff!important;border-color:#737373!important;
+  }
+
+  /* --- Legend layout --- */
+  .legend-compact{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:10px 20px!important;
+    align-items:center!important;
+    padding:14px 18px!important;
+    background:#f8fafc!important;
+    border-radius:12px!important;
+    border:1px solid #e2e8f0!important;
+  }
+  .legend-compact > span{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:6px!important;
+    font-weight:700!important;
+    font-size:12px!important;
+    color:#334155!important;
+  }
+  .legend-compact .shift-cell,
+  .legend-compact.sw4-clean-legend .shift-cell{
+    min-width:34px!important;
+    height:26px!important;
+    padding:0 8px!important;
+    border-radius:8px!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    letter-spacing:.3px!important;
+    box-shadow:0 2px 4px rgba(15,23,42,.15)!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+</style>
+
 </body>
 </html>
