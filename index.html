@@ -3628,6 +3628,56 @@
       String(b.request_date||'').localeCompare(String(a.request_date||''))
     ).slice(0, 30);
 
+    const isSvetlana = name.toLowerCase().includes('svetlana');
+
+    function buildMonthlyTrends(){
+      const today = new Date();
+      const months = [];
+      for(let i = 5; i >= 0; i--){
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const mStart = d.toISOString().slice(0,10);
+        const mEnd = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+        const mLabel = d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'});
+        const daysInMonth = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+        const mLeave = approved.filter(r => {const dt=String(r.request_date||''); return dt>=mStart && dt<=mEnd;});
+        const sick = mLeave.filter(r => normaliseRosterCode(r.request_code)==='SL').length;
+        const annual = mLeave.filter(r => ['L','VL','AL'].includes(normaliseRosterCode(r.request_code))).length;
+        const study = mLeave.filter(r => normaliseRosterCode(r.request_code)==='ST').length;
+        const ot = mLeave.filter(r => normaliseRosterCode(r.request_code)==='OT').length;
+        const tilIn = mLeave.filter(r => normaliseRosterCode(r.request_code)==='TI').length;
+        const tilOut = mLeave.filter(r => normaliseRosterCode(r.request_code)==='TO').length;
+        const totalAbsent = sick + annual + study;
+        const attendanceRate = daysInMonth > 0 ? Math.round(((daysInMonth - totalAbsent)/daysInMonth)*100) : 100;
+        months.push({label:mLabel, sick, annual, study, ot, tilIn, tilOut, totalAbsent, attendanceRate});
+      }
+      return months;
+    }
+    const trends = buildMonthlyTrends();
+    const maxAbsent = Math.max(1, ...trends.map(m => m.totalAbsent));
+
+    function trendBar(m){
+      const sickPct = Math.round((m.sick/maxAbsent)*100);
+      const annualPct = Math.round((m.annual/maxAbsent)*100);
+      const studyPct = Math.round((m.study/maxAbsent)*100);
+      return `<div class="sw4-trend-col">
+        <div class="sw4-trend-bar-wrap">
+          <div class="sw4-trend-bar sw4-trend-sick" style="height:${sickPct}%"${m.sick?` title="Sick: ${m.sick}"`:''} ></div>
+          <div class="sw4-trend-bar sw4-trend-annual" style="height:${annualPct}%"${m.annual?` title="Leave: ${m.annual}"`:''} ></div>
+          <div class="sw4-trend-bar sw4-trend-study" style="height:${studyPct}%"${m.study?` title="Study: ${m.study}"`:''} ></div>
+        </div>
+        <div class="sw4-trend-lbl">${m.label}</div>
+        <div class="sw4-trend-att">${m.attendanceRate}%</div>
+      </div>`;
+    }
+
+    const avgAttendance = trends.length ? Math.round(trends.reduce((s,m)=>s+m.attendanceRate,0)/trends.length) : 100;
+    const totalSick6m = trends.reduce((s,m)=>s+m.sick,0);
+    const totalLeave6m = trends.reduce((s,m)=>s+m.annual,0);
+    const totalOT6m = trends.reduce((s,m)=>s+m.ot,0);
+    const sickTrend = trends.length >= 2 ? trends[trends.length-1].sick - trends[trends.length-2].sick : 0;
+    const sickTrendIcon = sickTrend > 0 ? '&#9650;' : sickTrend < 0 ? '&#9660;' : '&#8212;';
+    const sickTrendCls = sickTrend > 0 ? 'sw4-trend-up' : sickTrend < 0 ? 'sw4-trend-down' : 'sw4-trend-flat';
+
     function statBox(label, count, cls){
       return `<div class="sw4-profile-stat ${cls||''}"><div class="sw4-profile-stat-val">${count}</div><div class="sw4-profile-stat-lbl">${escapeHtml(label)}</div></div>`;
     }
@@ -3653,7 +3703,7 @@
     backdrop.addEventListener('click', e => { if(e.target === backdrop) sw4CloseStaffProfile(); });
 
     backdrop.innerHTML = `
-    <div class="sw4-profile-page">
+    <div class="sw4-profile-page" ${isSvetlana ? 'data-svetlana="true"' : ''}>
       <div class="sw4-profile-header">
         <div>
           <h1 class="sw4-profile-name">${escapeHtml(name)}</h1>
@@ -3670,6 +3720,7 @@
         <div class="sw4-filter-row">
           <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_summary" checked> Leave Summary (All Time)</label>
           <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_month" checked> This Month</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_trends" checked> Metrics &amp; Trends</label>
           <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_upcoming" checked> Upcoming / Planned</label>
           <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_history" checked> Recent History</label>
         </div>
@@ -3718,6 +3769,39 @@
         </div>
       </div>
 
+      <div class="sw4-profile-section" data-section="trends">
+        <h2>Metrics &amp; Trends (Last 6 Months)</h2>
+        <div class="sw4-trend-summary">
+          ${statBox('Avg Attendance', avgAttendance + '%', avgAttendance >= 90 ? 'green' : avgAttendance >= 75 ? 'amber' : 'red')}
+          ${statBox('Sick Days', totalSick6m, totalSick6m > 6 ? 'red' : '')}
+          ${statBox('Leave Days', totalLeave6m, 'green')}
+          ${statBox('Overtime', totalOT6m, 'orange')}
+          <div class="sw4-profile-stat ${sickTrendCls}">
+            <div class="sw4-profile-stat-val">${sickTrendIcon}</div>
+            <div class="sw4-profile-stat-lbl">Sick Trend</div>
+          </div>
+        </div>
+        <div class="sw4-trend-chart">
+          <div class="sw4-trend-legend">
+            <span class="sw4-trend-legend-item"><span class="sw4-trend-dot sw4-trend-sick"></span> Sick</span>
+            <span class="sw4-trend-legend-item"><span class="sw4-trend-dot sw4-trend-annual"></span> Leave</span>
+            <span class="sw4-trend-legend-item"><span class="sw4-trend-dot sw4-trend-study"></span> Study</span>
+          </div>
+          <div class="sw4-trend-bars">${trends.map(trendBar).join('')}</div>
+        </div>
+        <div class="sw4-trend-detail-grid">
+          <table class="sw4-profile-table sw4-trend-table">
+            <thead><tr><th>Month</th><th>Sick</th><th>Leave</th><th>Study</th><th>OT</th><th>TIL In</th><th>TIL Out</th><th>Attendance</th></tr></thead>
+            <tbody>${trends.map(m => `<tr>
+              <td style="font-weight:700">${m.label}</td>
+              <td>${m.sick||'—'}</td><td>${m.annual||'—'}</td><td>${m.study||'—'}</td>
+              <td>${m.ot||'—'}</td><td>${m.tilIn||'—'}</td><td>${m.tilOut||'—'}</td>
+              <td><span class="sw4-att-badge ${m.attendanceRate>=90?'sw4-att-good':m.attendanceRate>=75?'sw4-att-warn':'sw4-att-bad'}">${m.attendanceRate}%</span></td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+
       ${futureLeave.length ? `
       <div class="sw4-profile-section" data-section="upcoming">
         <h2>Upcoming / Planned</h2>
@@ -3757,6 +3841,7 @@
 
     const showSummary = document.getElementById('sw4PF_summary')?.checked !== false;
     const showMonth = document.getElementById('sw4PF_month')?.checked !== false;
+    const showTrends = document.getElementById('sw4PF_trends')?.checked !== false;
     const showUpcoming = document.getElementById('sw4PF_upcoming')?.checked !== false;
     const showHistory = document.getElementById('sw4PF_history')?.checked !== false;
     const showApproved = document.getElementById('sw4PF_approved')?.checked !== false;
@@ -3769,7 +3854,7 @@
     const filters = clone.querySelector('.sw4-print-filters');
     if(filters) filters.remove();
 
-    const sectionMap = {summary: showSummary, month: showMonth, upcoming: showUpcoming, history: showHistory};
+    const sectionMap = {summary: showSummary, month: showMonth, trends: showTrends, upcoming: showUpcoming, history: showHistory};
     clone.querySelectorAll('.sw4-profile-section[data-section]').forEach(sec => {
       if(!sectionMap[sec.dataset.section]) sec.remove();
     });
@@ -3849,6 +3934,26 @@
       .sw4-print-filters{display:none}
       .shift-cell{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #ccc}
       .sw4-print-footer{margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;display:flex;justify-content:space-between}
+      .sw4-trend-summary{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+      .sw4-trend-chart{margin:16px 0}
+      .sw4-trend-bars{display:flex;gap:4px;align-items:flex-end;height:80px}
+      .sw4-trend-col{flex:1;display:flex;flex-direction:column;align-items:center}
+      .sw4-trend-bar-wrap{width:100%;height:60px;display:flex;flex-direction:column;justify-content:flex-end;gap:1px}
+      .sw4-trend-bar{border-radius:3px;min-height:0}
+      .sw4-trend-sick{background:#dc2626}
+      .sw4-trend-annual{background:#059669}
+      .sw4-trend-study{background:#d97706}
+      .sw4-trend-lbl{font-size:10px;font-weight:700;margin-top:4px;color:#374151}
+      .sw4-trend-att{font-size:9px;font-weight:800;color:#6b7280}
+      .sw4-trend-legend{display:flex;gap:12px;margin-bottom:8px;font-size:10px;font-weight:700;color:#374151}
+      .sw4-trend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+      .sw4-att-badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800}
+      .sw4-att-good{background:#dcfce7;color:#166534}
+      .sw4-att-warn{background:#fef9c3;color:#854d0e}
+      .sw4-att-bad{background:#fee2e2;color:#991b1b}
+      .sw4-trend-up .sw4-profile-stat-val{color:#dc2626}
+      .sw4-trend-down .sw4-profile-stat-val{color:#059669}
+      .sw4-trend-flat .sw4-profile-stat-val{color:#6b7280}
       @media print{body{padding:15px}h1{font-size:20px}}
     </style></head><body>${clone.innerHTML}<div class="sw4-print-footer"><span>Surgical Ward 4 — Staff Profile Report</span><span>Printed: ${printDate}</span></div></body></html>`);
     win.document.close();
@@ -3859,164 +3964,57 @@
 </script>
 
 <style>
-  /* SW4 v20 — Staff profile styles */
-  .sw4-staff-clickable{
-    cursor:pointer!important;
-  }
-  .sw4-staff-clickable:hover{
-    background:rgba(124,58,237,.06)!important;
-  }
-  .sw4-staff-link{
-    color:#6d28d9!important;
-    text-decoration:underline!important;
-    text-decoration-color:rgba(109,40,217,.3)!important;
-    text-underline-offset:2px!important;
-  }
-  .sw4-staff-clickable:hover .sw4-staff-link{
-    text-decoration-color:#6d28d9!important;
+  /* SW4 v21 — Staff profile styles: neutral base + Svetlana violet override */
+  .sw4-staff-clickable{cursor:pointer!important}
+  .sw4-staff-clickable:hover{background:rgba(37,99,235,.06)!important}
+  .sw4-staff-link{color:#1d4ed8!important;text-decoration:underline!important;text-decoration-color:rgba(29,78,216,.3)!important;text-underline-offset:2px!important}
+  .sw4-staff-clickable:hover .sw4-staff-link{text-decoration-color:#1d4ed8!important}
+
+  /* ── Backdrop ── */
+  .sw4-profile-backdrop{
+    position:fixed!important;inset:0!important;z-index:9999!important;
+    background:rgba(15,23,42,.5)!important;backdrop-filter:blur(6px)!important;
+    display:flex!important;align-items:flex-start!important;justify-content:center!important;
+    padding:30px 20px!important;overflow-y:auto!important;
   }
 
-  .sw4-profile-backdrop{
-    position:fixed!important;
-    inset:0!important;
-    z-index:9999!important;
-    background:rgba(30,10,60,.55)!important;
-    backdrop-filter:blur(6px)!important;
-    display:flex!important;
-    align-items:flex-start!important;
-    justify-content:center!important;
-    padding:30px 20px!important;
-    overflow-y:auto!important;
-  }
+  /* ── Page container (neutral) ── */
   .sw4-profile-page{
-    background:#fff!important;
-    border-radius:24px!important;
-    box-shadow:0 30px 100px rgba(59,7,100,.30)!important;
-    max-width:900px!important;
-    width:100%!important;
-    padding:32px!important;
-    color:#1e1b4b!important;
+    background:#fff!important;border-radius:24px!important;
+    box-shadow:0 25px 80px rgba(15,23,42,.22)!important;
+    max-width:960px!important;width:100%!important;padding:32px!important;color:#1e293b!important;
   }
   .sw4-profile-header{
-    display:flex!important;
-    justify-content:space-between!important;
-    align-items:flex-start!important;
-    gap:16px!important;
-    margin-bottom:24px!important;
-    border-bottom:2px solid #e9d5ff!important;
-    padding-bottom:18px!important;
+    display:flex!important;justify-content:space-between!important;align-items:flex-start!important;
+    gap:16px!important;margin-bottom:24px!important;border-bottom:2px solid #e2e8f0!important;padding-bottom:18px!important;
   }
-  .sw4-profile-name{
-    font-size:28px!important;
-    font-weight:900!important;
-    color:#3b0764!important;
-    margin:0!important;
-  }
-  .sw4-profile-meta{
-    color:#6b21a8!important;
-    font-size:14px!important;
-    font-weight:700!important;
-    margin-top:4px!important;
-  }
-  .sw4-profile-actions{
-    display:flex!important;
-    gap:8px!important;
-    flex-shrink:0!important;
-  }
+  .sw4-profile-name{font-size:28px!important;font-weight:900!important;color:#0f172a!important;margin:0!important}
+  .sw4-profile-meta{color:#475569!important;font-size:14px!important;font-weight:700!important;margin-top:4px!important}
+  .sw4-profile-actions{display:flex!important;gap:8px!important;flex-shrink:0!important}
+
+  /* ── Filters (neutral) ── */
   .sw4-print-filters{
-    background:linear-gradient(135deg,#faf5ff,#f3e8ff)!important;
-    border:1.5px solid #d8b4fe!important;
-    border-radius:14px!important;
-    padding:16px 20px!important;
-    margin-bottom:20px!important;
+    background:linear-gradient(135deg,#f8fafc,#f1f5f9)!important;
+    border:1.5px solid #cbd5e1!important;border-radius:14px!important;
+    padding:16px 20px!important;margin-bottom:20px!important;
   }
-  .sw4-print-filters-title{
-    font-size:14px!important;
-    font-weight:800!important;
-    color:#581c87!important;
-    margin:0 0 10px 0!important;
-  }
-  .sw4-filter-row{
-    display:flex!important;
-    flex-wrap:wrap!important;
-    gap:12px 20px!important;
-    align-items:center!important;
-    margin-bottom:8px!important;
-  }
+  .sw4-print-filters-title{font-size:14px!important;font-weight:800!important;color:#1e293b!important;margin:0 0 10px 0!important}
+  .sw4-filter-row{display:flex!important;flex-wrap:wrap!important;gap:12px 20px!important;align-items:center!important;margin-bottom:8px!important}
   .sw4-filter-row:last-child{margin-bottom:0!important}
-  .sw4-filter-check{
-    display:flex!important;
-    align-items:center!important;
-    gap:6px!important;
-    font-size:13px!important;
-    font-weight:600!important;
-    color:#3b0764!important;
-    cursor:pointer!important;
-    white-space:nowrap!important;
-  }
-  .sw4-filter-check input[type="checkbox"]{
-    width:16px!important;
-    height:16px!important;
-    accent-color:#7e22ce!important;
-    cursor:pointer!important;
-  }
-  .sw4-filter-lbl{
-    font-size:13px!important;
-    font-weight:700!important;
-    color:#581c87!important;
-  }
-  .sw4-filter-select{
-    padding:5px 10px!important;
-    border:1.5px solid #c084fc!important;
-    border-radius:8px!important;
-    font-size:13px!important;
-    font-weight:600!important;
-    color:#3b0764!important;
-    background:#fff!important;
-    cursor:pointer!important;
-    outline:none!important;
-  }
-  .sw4-filter-select:focus{border-color:#7e22ce!important;box-shadow:0 0 0 2px rgba(126,34,206,.2)!important}
-  .sw4-filter-sort{
-    margin-top:4px!important;
-    padding-top:10px!important;
-    border-top:1px solid #e9d5ff!important;
-  }
-  .sw4-profile-section{
-    margin-bottom:24px!important;
-  }
-  .sw4-profile-section h2{
-    font-size:16px!important;
-    font-weight:800!important;
-    color:#581c87!important;
-    margin:0 0 12px 0!important;
-    border-bottom:2px solid #f3e8ff!important;
-    padding-bottom:8px!important;
-  }
-  .sw4-profile-stats{
-    display:flex!important;
-    flex-wrap:wrap!important;
-    gap:10px!important;
-  }
-  .sw4-profile-stat{
-    border:1px solid #e9d5ff!important;
-    border-radius:14px!important;
-    padding:12px 16px!important;
-    min-width:95px!important;
-    text-align:center!important;
-    background:#faf5ff!important;
-  }
-  .sw4-profile-stat-val{
-    font-size:26px!important;
-    font-weight:900!important;
-    color:#3b0764!important;
-  }
-  .sw4-profile-stat-lbl{
-    font-size:11px!important;
-    font-weight:700!important;
-    color:#7c3aed!important;
-    margin-top:2px!important;
-  }
+  .sw4-filter-check{display:flex!important;align-items:center!important;gap:6px!important;font-size:13px!important;font-weight:600!important;color:#1e293b!important;cursor:pointer!important;white-space:nowrap!important}
+  .sw4-filter-check input[type="checkbox"]{width:16px!important;height:16px!important;accent-color:#2563eb!important;cursor:pointer!important}
+  .sw4-filter-lbl{font-size:13px!important;font-weight:700!important;color:#334155!important}
+  .sw4-filter-select{padding:5px 10px!important;border:1.5px solid #94a3b8!important;border-radius:8px!important;font-size:13px!important;font-weight:600!important;color:#1e293b!important;background:#fff!important;cursor:pointer!important;outline:none!important}
+  .sw4-filter-select:focus{border-color:#2563eb!important;box-shadow:0 0 0 2px rgba(37,99,235,.2)!important}
+  .sw4-filter-sort{margin-top:4px!important;padding-top:10px!important;border-top:1px solid #e2e8f0!important}
+
+  /* ── Sections (neutral) ── */
+  .sw4-profile-section{margin-bottom:24px!important}
+  .sw4-profile-section h2{font-size:16px!important;font-weight:800!important;color:#1e293b!important;margin:0 0 12px 0!important;border-bottom:2px solid #e2e8f0!important;padding-bottom:8px!important}
+  .sw4-profile-stats, .sw4-trend-summary{display:flex!important;flex-wrap:wrap!important;gap:10px!important}
+  .sw4-profile-stat{border:1px solid #e2e8f0!important;border-radius:14px!important;padding:12px 16px!important;min-width:95px!important;text-align:center!important;background:#f8fafc!important}
+  .sw4-profile-stat-val{font-size:26px!important;font-weight:900!important;color:#0f172a!important}
+  .sw4-profile-stat-lbl{font-size:11px!important;font-weight:700!important;color:#64748b!important;margin-top:2px!important}
   .sw4-profile-stat.red .sw4-profile-stat-val{color:#dc2626!important}
   .sw4-profile-stat.green .sw4-profile-stat-val{color:#059669!important}
   .sw4-profile-stat.pink .sw4-profile-stat-val{color:#ec4899!important}
@@ -4026,49 +4024,115 @@
   .sw4-profile-stat.orange .sw4-profile-stat-val{color:#ea580c!important}
   .sw4-profile-stat.yellow .sw4-profile-stat-val{color:#ca8a04!important}
 
-  .sw4-profile-table{
-    width:100%!important;
-    border-collapse:collapse!important;
-  }
-  .sw4-profile-table th,
-  .sw4-profile-table td{
-    text-align:left!important;
-    padding:8px 12px!important;
-    border-bottom:1px solid #f3e8ff!important;
-    font-size:13px!important;
-  }
-  .sw4-profile-table th{
-    font-weight:800!important;
-    background:#faf5ff!important;
-    color:#581c87!important;
-    font-size:12px!important;
-  }
-  .sw4-profile-table tbody tr:hover{
-    background:#fdf4ff!important;
-  }
+  /* ── Tables (neutral) ── */
+  .sw4-profile-table{width:100%!important;border-collapse:collapse!important}
+  .sw4-profile-table th,.sw4-profile-table td{text-align:left!important;padding:8px 12px!important;border-bottom:1px solid #e2e8f0!important;font-size:13px!important}
+  .sw4-profile-table th{font-weight:800!important;background:#f1f5f9!important;color:#334155!important;font-size:12px!important}
+  .sw4-profile-table tbody tr:hover{background:#f8fafc!important}
 
-  .sw4-pill{
-    display:inline-block!important;
-    padding:3px 10px!important;
-    border-radius:20px!important;
-    font-size:11px!important;
-    font-weight:800!important;
-    background:#f3e8ff!important;
-    color:#6b21a8!important;
-  }
+  /* ── Pills (neutral) ── */
+  .sw4-pill{display:inline-block!important;padding:3px 10px!important;border-radius:20px!important;font-size:11px!important;font-weight:800!important;background:#f1f5f9!important;color:#334155!important}
   .sw4-pill-green{background:#dcfce7!important;color:#166534!important}
   .sw4-pill-yellow{background:#fef9c3!important;color:#854d0e!important}
   .sw4-pill-red{background:#fee2e2!important;color:#991b1b!important}
 
-  @media(max-width:640px){
-    .sw4-profile-page{padding:18px!important;border-radius:16px!important}
-    .sw4-profile-header{flex-direction:column!important}
-    .sw4-profile-name{font-size:22px!important}
-    .sw4-profile-stats{gap:8px!important}
-    .sw4-profile-stat{min-width:80px!important;padding:10px!important}
-    .sw4-print-filters{padding:12px 14px!important}
-    .sw4-filter-row{gap:8px 14px!important}
-    .sw4-filter-check{font-size:12px!important}
+  /* ── Trend chart ── */
+  .sw4-trend-chart{margin:16px 0!important}
+  .sw4-trend-legend{display:flex!important;gap:14px!important;margin-bottom:8px!important;font-size:11px!important;font-weight:700!important;color:#475569!important}
+  .sw4-trend-legend-item{display:flex!important;align-items:center!important;gap:5px!important}
+  .sw4-trend-dot{display:inline-block!important;width:10px!important;height:10px!important;border-radius:50%!important}
+  .sw4-trend-dot.sw4-trend-sick{background:#dc2626!important}
+  .sw4-trend-dot.sw4-trend-annual{background:#059669!important}
+  .sw4-trend-dot.sw4-trend-study{background:#d97706!important}
+  .sw4-trend-bars{display:flex!important;gap:6px!important;align-items:flex-end!important;height:100px!important;padding:8px 0!important}
+  .sw4-trend-col{flex:1!important;display:flex!important;flex-direction:column!important;align-items:center!important}
+  .sw4-trend-bar-wrap{width:100%!important;max-width:48px!important;height:70px!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;gap:1px!important;margin:0 auto!important}
+  .sw4-trend-bar{border-radius:4px!important;min-height:0!important;transition:height .3s ease!important}
+  .sw4-trend-bar.sw4-trend-sick{background:#dc2626!important}
+  .sw4-trend-bar.sw4-trend-annual{background:#059669!important}
+  .sw4-trend-bar.sw4-trend-study{background:#d97706!important}
+  .sw4-trend-lbl{font-size:11px!important;font-weight:700!important;margin-top:5px!important;color:#475569!important}
+  .sw4-trend-att{font-size:10px!important;font-weight:800!important;color:#64748b!important}
+  .sw4-trend-detail-grid{margin-top:14px!important;overflow-x:auto!important}
+  .sw4-trend-table{font-size:12px!important}
+
+  /* ── Attendance badges ── */
+  .sw4-att-badge{padding:2px 10px!important;border-radius:10px!important;font-size:11px!important;font-weight:800!important}
+  .sw4-att-good{background:#dcfce7!important;color:#166534!important}
+  .sw4-att-warn{background:#fef9c3!important;color:#854d0e!important}
+  .sw4-att-bad{background:#fee2e2!important;color:#991b1b!important}
+
+  /* ── Trend arrows ── */
+  .sw4-trend-up .sw4-profile-stat-val{color:#dc2626!important}
+  .sw4-trend-down .sw4-profile-stat-val{color:#059669!important}
+  .sw4-trend-flat .sw4-profile-stat-val{color:#64748b!important}
+
+  /* ══════════════════════════════════════════
+     SVETLANA VIOLET THEME OVERRIDE
+     Only applies when data-svetlana="true"
+     ══════════════════════════════════════════ */
+  .sw4-profile-page[data-svetlana="true"]{
+    box-shadow:0 30px 100px rgba(59,7,100,.30)!important;color:#1e1b4b!important;
+  }
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-header{border-bottom-color:#e9d5ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-name{color:#3b0764!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-meta{color:#6b21a8!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-print-filters{background:linear-gradient(135deg,#faf5ff,#f3e8ff)!important;border-color:#d8b4fe!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-print-filters-title{color:#581c87!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-check{color:#3b0764!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-check input[type="checkbox"]{accent-color:#7e22ce!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-lbl{color:#581c87!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-select{border-color:#c084fc!important;color:#3b0764!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-filter-sort{border-top-color:#e9d5ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-section h2{color:#581c87!important;border-bottom-color:#f3e8ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-stat{border-color:#e9d5ff!important;background:#faf5ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-stat-val{color:#3b0764!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-stat-lbl{color:#7c3aed!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-table th{background:#faf5ff!important;color:#581c87!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-table td{border-bottom-color:#f3e8ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-profile-table tbody tr:hover{background:#fdf4ff!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-pill{background:#f3e8ff!important;color:#6b21a8!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-trend-lbl{color:#7c3aed!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-trend-att{color:#a855f7!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-trend-legend{color:#7c3aed!important}
+
+  /* ── RESPONSIVE: Tablet (max 768px) ── */
+  @media(max-width:768px){
+    .sw4-profile-backdrop{padding:20px 14px!important}
+    .sw4-profile-page{padding:24px 20px!important;border-radius:20px!important}
+    .sw4-profile-name{font-size:24px!important}
+    .sw4-profile-stats,.sw4-trend-summary{gap:8px!important}
+    .sw4-profile-stat{min-width:85px!important;padding:10px 12px!important}
+    .sw4-profile-stat-val{font-size:22px!important}
+    .sw4-trend-bars{height:90px!important}
+    .sw4-trend-bar-wrap{height:60px!important;max-width:38px!important}
+    .sw4-profile-table th,.sw4-profile-table td{padding:6px 8px!important;font-size:12px!important}
+  }
+
+  /* ── RESPONSIVE: Phone (max 480px) ── */
+  @media(max-width:480px){
+    .sw4-profile-backdrop{padding:10px 6px!important}
+    .sw4-profile-page{padding:16px 12px!important;border-radius:14px!important}
+    .sw4-profile-header{flex-direction:column!important;gap:10px!important}
+    .sw4-profile-name{font-size:20px!important}
+    .sw4-profile-meta{font-size:12px!important}
+    .sw4-profile-actions{width:100%!important}
+    .sw4-profile-actions button{flex:1!important;font-size:13px!important;padding:8px 0!important}
+    .sw4-print-filters{padding:10px 12px!important;border-radius:10px!important}
+    .sw4-filter-row{gap:6px 10px!important}
+    .sw4-filter-check{font-size:11px!important}
+    .sw4-profile-stats,.sw4-trend-summary{gap:6px!important}
+    .sw4-profile-stat{min-width:70px!important;padding:8px 10px!important;border-radius:10px!important}
+    .sw4-profile-stat-val{font-size:20px!important}
+    .sw4-profile-stat-lbl{font-size:10px!important}
+    .sw4-profile-section h2{font-size:14px!important}
+    .sw4-trend-bars{height:80px!important;gap:3px!important}
+    .sw4-trend-bar-wrap{height:50px!important;max-width:28px!important}
+    .sw4-trend-lbl{font-size:9px!important}
+    .sw4-trend-att{font-size:8px!important}
+    .sw4-trend-legend{gap:8px!important;font-size:10px!important}
+    .sw4-trend-detail-grid{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important}
+    .sw4-profile-table th,.sw4-profile-table td{padding:5px 6px!important;font-size:11px!important;white-space:nowrap!important}
   }
 </style>
 
