@@ -1417,9 +1417,9 @@
   #mainSubtitle{font-size:12px !important;color:#667085 !important;font-weight:650 !important;}
   .tabs{grid-area:tabs !important;position:static !important;top:auto !important;left:auto !important;right:auto !important;bottom:auto !important;width:100% !important;margin:2px 0 0 !important;padding:8px 0 0 !important;display:flex !important;flex-direction:row !important;align-items:center !important;justify-content:flex-start !important;gap:22px !important;background:transparent !important;border:0 !important;border-top:1px solid #e5eaf0 !important;border-radius:0 !important;box-shadow:none !important;z-index:auto !important;overflow-x:auto !important;overflow-y:hidden !important;flex-wrap:nowrap !important;}
   .tabs:before{display:none !important;content:none !important;}
-  .tab{width:auto !important;min-width:max-content !important;background:#f1f5f9 !important;border:1px solid #e2e8f0 !important;border-radius:20px !important;padding:6px 16px !important;min-height:auto !important;box-shadow:none !important;color:#6f7b89 !important;font-size:12px !important;font-weight:750 !important;letter-spacing:0 !important;border-bottom:none !important;line-height:1.2 !important;transition:all .15s ease !important;}
-  .tab:hover{background:#e2e8f0 !important;color:#25384d !important;border-color:#cbd5e1 !important;}
-  .tab.active{background:#1f9aa0 !important;color:#ffffff !important;border-color:#1f9aa0 !important;box-shadow:0 2px 6px rgba(31,154,160,.25) !important;}
+  .tab{width:auto !important;min-width:max-content !important;background:transparent !important;border:0 !important;border-radius:0 !important;padding:2px 0 8px !important;min-height:auto !important;box-shadow:none !important;color:#6f7b89 !important;font-size:12px !important;font-weight:750 !important;letter-spacing:0 !important;border-bottom:2px solid transparent !important;line-height:1.2 !important;}
+  .tab:hover{background:transparent !important;color:#25384d !important;border-bottom-color:#c9d3df !important;}
+  .tab.active{background:transparent !important;color:#1e354a !important;border-bottom-color:#1f9aa0 !important;box-shadow:none !important;}
   .tab .nav-icon{display:none !important;}
   .card{border-color:#dbe2ea !important;border-radius:8px !important;box-shadow:0 2px 8px rgba(15,23,42,.04) !important;}
   .roster-hero{background:#fff !important;border-radius:8px !important;}
@@ -4235,12 +4235,12 @@
     box-shadow:none!important;
   }
   body.sw4-svetlana-theme .tabs:before{display:none!important}
-  body.sw4-svetlana-theme .tab{color:#7c3aed!important;background:#f5f3ff!important;border:1px solid #e9d5ff!important;border-radius:20px!important;border-bottom:none!important;box-shadow:none!important}
-  body.sw4-svetlana-theme .tab:hover{background:#ede9fe!important;color:#6d28d9!important;border-color:#c4b5fd!important}
+  body.sw4-svetlana-theme .tab{color:#7c3aed!important;background:transparent!important;border-bottom:2px solid transparent!important;box-shadow:none!important}
+  body.sw4-svetlana-theme .tab:hover{background:transparent!important;color:#6d28d9!important;border-bottom-color:#c4b5fd!important}
   body.sw4-svetlana-theme .tab.active{
-    background:#7c3aed!important;
-    color:#ffffff!important;border-color:#7c3aed!important;
-    box-shadow:0 2px 6px rgba(124,58,237,.25)!important;
+    background:transparent!important;
+    color:#581c87!important;border-bottom-color:#7c3aed!important;
+    box-shadow:none!important;
   }
   body.sw4-svetlana-theme .tab .nav-icon{display:none!important}
   body.sw4-svetlana-theme .tab.active .nav-icon{display:none!important}
@@ -4294,11 +4294,12 @@
   body.sw4-svetlana-theme .roster-table th:not(:first-child){background:#581c87!important;color:#ffffff!important;border-color:#7c3aed!important}
   body.sw4-svetlana-theme .roster-table th:first-child{background:#581c87!important;color:#ffffff!important;border-color:#7c3aed!important}
 
-  /* Sundays pink, public holidays lighter pink (Svetlana theme) */
-  body.sw4-svetlana-theme .roster-table th.sunday-col{background:#db2777!important;color:#ffffff!important;border-color:#be185d!important}
-  body.sw4-svetlana-theme .roster-table td.sunday-col{background:#fdf2f8!important}
-  body.sw4-svetlana-theme .roster-table th.holiday-col{background:#f9a8d4!important;color:#831843!important;border-color:#f472b6!important}
-  body.sw4-svetlana-theme .roster-table td.holiday-col{background:#fdf2f8!important}
+  /* Sundays pink, public holidays lighter pink (all profiles) */
+  .roster-table th.sunday-col{background:#db2777!important;color:#ffffff!important;border-color:#be185d!important}
+  .roster-table td.sunday-col{background:#fdf2f8!important}
+  .roster-table th.holiday-col{background:#f9a8d4!important;color:#831843!important;border-color:#f472b6!important}
+  .roster-table td.holiday-col{background:#fdf2f8!important}
+  .roster-table .holiday-label{background:#fdf2f8!important;border-color:#f472b6!important;color:#9d174d!important}
 </style>
 
 <script>
@@ -4317,8 +4318,24 @@
     }
   }
 
+  function clearVioletHeader(){
+    const h = document.querySelector('header');
+    if(h){
+      h.style.removeProperty('background');
+      h.style.removeProperty('border-bottom');
+      h.style.removeProperty('box-shadow');
+    }
+    const brandTitle = document.querySelector('.brand-title');
+    if(brandTitle) brandTitle.style.removeProperty('color');
+    const topUser = document.getElementById('topUser');
+    if(topUser) topUser.style.removeProperty('color');
+    document.querySelectorAll('.top-user strong, .sw4-header-ward, .sw4-header-name, .top-user .role-inline').forEach(el=>{
+      el.style.removeProperty('color');
+    });
+  }
+
   function applyVioletHeader(){
-    if(!isSvetlana()) return;
+    if(!isSvetlana()){ clearVioletHeader(); return; }
     const h = document.querySelector('header');
     if(h) h.style.cssText += ';background:linear-gradient(90deg,#581c87 0%,#7e22ce 55%,#a855f7 100%)!important;border-bottom:1px solid rgba(255,255,255,.12)!important;box-shadow:0 12px 32px rgba(88,28,135,.25)!important;';
     const brandTitle = document.querySelector('.brand-title');
