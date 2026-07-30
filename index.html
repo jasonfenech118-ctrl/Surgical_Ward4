@@ -3556,6 +3556,20 @@
   const prevRenderV20 = renderMonthlyRoster;
   renderMonthlyRoster = async function(){
     await prevRenderV20();
+    try{
+      const {days:_sunDays}=monthRange(appState.selectedMonth);
+      const _heads=document.querySelectorAll('.roster-table thead th');
+      const _bodyRows=document.querySelectorAll('.roster-table tbody tr');
+      _sunDays.forEach((d,idx)=>{
+        if(d.getDay()!==0) return;
+        const th=_heads[idx+1];
+        if(th) th.classList.add('sunday-col');
+        _bodyRows.forEach(tr=>{
+          const cell=tr.children[idx+1];
+          if(cell) cell.classList.add('sunday-col');
+        });
+      });
+    }catch(e){}
     if(!sw4IsChargeOrManager()) return;
     const rows = document.querySelectorAll('.roster-table tbody tr');
     const grouped = appState.monthlyRosterRows || [];
@@ -4273,6 +4287,12 @@
 
   body.sw4-svetlana-theme .roster-table th:not(:first-child){background:#581c87!important;color:#ffffff!important;border-color:#7c3aed!important}
   body.sw4-svetlana-theme .roster-table th:first-child{background:#581c87!important;color:#ffffff!important;border-color:#7c3aed!important}
+
+  /* Sundays and public holidays highlighted pink (Svetlana theme) */
+  body.sw4-svetlana-theme .roster-table th.sunday-col,
+  body.sw4-svetlana-theme .roster-table th.holiday-col{background:#db2777!important;color:#ffffff!important;border-color:#be185d!important}
+  body.sw4-svetlana-theme .roster-table td.sunday-col,
+  body.sw4-svetlana-theme .roster-table td.holiday-col{background:#fdf2f8!important}
 </style>
 
 <script>
