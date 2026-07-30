@@ -3709,7 +3709,6 @@
           <div class="sw4-profile-meta">${escapeHtml(role)} · Pattern: ${escapeHtml(pattern)} · Surgical Ward 4</div>
         </div>
         <div class="sw4-profile-actions">
-          <button type="button" class="secondary" onclick="sw4PrintStaffProfile()">Print</button>
           <button type="button" class="secondary" onclick="sw4CloseStaffProfile()">Close</button>
         </div>
       </div>
@@ -3736,6 +3735,7 @@
             <option value="type">Leave Type</option>
             <option value="status">Status</option>
           </select>
+          <button type="button" class="sw4-print-btn" onclick="sw4PrintStaffProfile()">Print</button>
         </div>
       </div>
 
@@ -4006,6 +4006,10 @@
   .sw4-filter-select{padding:5px 10px!important;border:1.5px solid #94a3b8!important;border-radius:8px!important;font-size:13px!important;font-weight:600!important;color:#1e293b!important;background:#fff!important;cursor:pointer!important;outline:none!important}
   .sw4-filter-select:focus{border-color:#2563eb!important;box-shadow:0 0 0 2px rgba(37,99,235,.2)!important}
   .sw4-filter-sort{margin-top:4px!important;padding-top:10px!important;border-top:1px solid #e2e8f0!important}
+  .sw4-print-btn{margin-left:auto!important;padding:6px 20px!important;border:none!important;border-radius:8px!important;font-size:13px!important;font-weight:700!important;cursor:pointer!important;background:#2563eb!important;color:#fff!important;transition:background .2s!important}
+  .sw4-print-btn:hover{background:#1d4ed8!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-print-btn{background:#7e22ce!important}
+  .sw4-profile-page[data-svetlana="true"] .sw4-print-btn:hover{background:#6b21a8!important}
 
   /* ── Sections (neutral) ── */
   .sw4-profile-section{margin-bottom:24px!important}
