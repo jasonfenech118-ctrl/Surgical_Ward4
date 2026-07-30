@@ -4264,11 +4264,14 @@
   body.sw4-svetlana-theme .stat-value{color:#3b0764!important}
   body.sw4-svetlana-theme .stat-label{color:#7c3aed!important}
 
-  body.sw4-svetlana-theme button:not(.shift-cell):not(.shift-choice-btn){
+  body.sw4-svetlana-theme button:not(.shift-cell):not(.shift-choice-btn):not(.tab){
     background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important;
     box-shadow:0 10px 22px rgba(124,58,237,.20)!important;border:1px solid rgba(124,58,237,.15)!important;
   }
-  body.sw4-svetlana-theme button:not(.shift-cell):not(.shift-choice-btn):hover{background:linear-gradient(135deg,#6d28d9,#9333ea)!important}
+  body.sw4-svetlana-theme button:not(.shift-cell):not(.shift-choice-btn):not(.tab):hover{background:linear-gradient(135deg,#6d28d9,#9333ea)!important}
+  body.sw4-svetlana-theme button.tab{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;color:#6f7b89!important;border-bottom:2px solid transparent!important;padding:2px 0 8px!important}
+  body.sw4-svetlana-theme button.tab:hover{background:transparent!important;color:#25384d!important;border-bottom-color:#c4b5fd!important}
+  body.sw4-svetlana-theme button.tab.active{background:transparent!important;color:#1e354a!important;border-bottom-color:#7c3aed!important;box-shadow:none!important}
   body.sw4-svetlana-theme button.secondary{background:#fff!important;color:#3b0764!important;border:1px solid #e9d5ff!important;box-shadow:0 8px 18px rgba(88,28,135,.06)!important}
   body.sw4-svetlana-theme button.secondary:hover{background:#faf5ff!important;border-color:#c084fc!important}
   body.sw4-svetlana-theme button.secondary.active{background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important;border-color:rgba(124,58,237,.15)!important}
@@ -4299,13 +4302,13 @@
   /* Sundays pink, public holidays lighter pink (all profiles) */
   .roster-table th.sunday-col{background:#db2777!important;color:#ffffff!important;border-color:#be185d!important}
   .roster-table td.sunday-col{background:#fdf2f8!important}
-  .roster-table th.holiday-col{background:#f9a8d4!important;color:#831843!important;border-color:#f472b6!important;min-width:64px!important}
+  .roster-table th.holiday-col{background:#f9a8d4!important;color:#831843!important;border-color:#f472b6!important;width:68px!important}
   .roster-table td.holiday-col{background:#fdf2f8!important}
   .roster-table .holiday-label{background:#fdf2f8!important;border-color:#f472b6!important;color:#9d174d!important}
   /* Svetlana-scoped duplicates so her violet th rules don't out-rank the pink */
   body.sw4-svetlana-theme .roster-table th.sunday-col{background:#db2777!important;color:#ffffff!important;border-color:#be185d!important}
   body.sw4-svetlana-theme .roster-table td.sunday-col{background:#fdf2f8!important}
-  body.sw4-svetlana-theme .roster-table th.holiday-col{background:#f9a8d4!important;color:#831843!important;border-color:#f472b6!important;min-width:64px!important}
+  body.sw4-svetlana-theme .roster-table th.holiday-col{background:#f9a8d4!important;color:#831843!important;border-color:#f472b6!important;width:68px!important}
   body.sw4-svetlana-theme .roster-table td.holiday-col{background:#fdf2f8!important}
 </style>
 
