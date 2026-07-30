@@ -3665,7 +3665,31 @@
         </div>
       </div>
 
-      <div class="sw4-profile-section">
+      <div class="sw4-print-filters" id="sw4PrintFilters">
+        <h3 class="sw4-print-filters-title">Print Filters</h3>
+        <div class="sw4-filter-row">
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_summary" checked> Leave Summary (All Time)</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_month" checked> This Month</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_upcoming" checked> Upcoming / Planned</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_history" checked> Recent History</label>
+        </div>
+        <div class="sw4-filter-row">
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_approved" checked> Approved</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_pending" checked> Pending</label>
+          <label class="sw4-filter-check"><input type="checkbox" id="sw4PF_rejected" checked> Rejected</label>
+        </div>
+        <div class="sw4-filter-row sw4-filter-sort">
+          <label class="sw4-filter-lbl">Sort by:</label>
+          <select id="sw4PF_sort" class="sw4-filter-select">
+            <option value="date-desc">Date (Newest First)</option>
+            <option value="date-asc">Date (Oldest First)</option>
+            <option value="type">Leave Type</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sw4-profile-section" data-section="summary">
         <h2>Leave Summary (All Time)</h2>
         <div class="sw4-profile-stats">
           ${statBox('Annual Leave', leaveAll.length, 'green')}
@@ -3679,7 +3703,7 @@
         </div>
       </div>
 
-      <div class="sw4-profile-section">
+      <div class="sw4-profile-section" data-section="month">
         <h2>This Month — ${escapeHtml(monthLabel(monthValue))}</h2>
         <div class="sw4-profile-stats">
           ${statBox('Days', monthCodes['D']||0)}
@@ -3695,7 +3719,7 @@
       </div>
 
       ${futureLeave.length ? `
-      <div class="sw4-profile-section">
+      <div class="sw4-profile-section" data-section="upcoming">
         <h2>Upcoming / Planned</h2>
         <div class="table-wrap">
           <table class="sw4-profile-table">
@@ -3705,7 +3729,7 @@
         </div>
       </div>` : ''}
 
-      <div class="sw4-profile-section">
+      <div class="sw4-profile-section" data-section="history">
         <h2>Recent Request History</h2>
         ${recentHistory.length ? `
         <div class="table-wrap">
@@ -3730,6 +3754,70 @@
   window.sw4PrintStaffProfile = function(){
     const page = document.querySelector('.sw4-profile-page');
     if(!page) return;
+
+    const showSummary = document.getElementById('sw4PF_summary')?.checked !== false;
+    const showMonth = document.getElementById('sw4PF_month')?.checked !== false;
+    const showUpcoming = document.getElementById('sw4PF_upcoming')?.checked !== false;
+    const showHistory = document.getElementById('sw4PF_history')?.checked !== false;
+    const showApproved = document.getElementById('sw4PF_approved')?.checked !== false;
+    const showPending = document.getElementById('sw4PF_pending')?.checked !== false;
+    const showRejected = document.getElementById('sw4PF_rejected')?.checked !== false;
+    const sortBy = document.getElementById('sw4PF_sort')?.value || 'date-desc';
+
+    const clone = page.cloneNode(true);
+
+    const filters = clone.querySelector('.sw4-print-filters');
+    if(filters) filters.remove();
+
+    const sectionMap = {summary: showSummary, month: showMonth, upcoming: showUpcoming, history: showHistory};
+    clone.querySelectorAll('.sw4-profile-section[data-section]').forEach(sec => {
+      if(!sectionMap[sec.dataset.section]) sec.remove();
+    });
+
+    const statusFilter = s => {
+      const st = s.toLowerCase();
+      if(st === 'approved' && !showApproved) return false;
+      if(st === 'pending' && !showPending) return false;
+      if(st === 'rejected' && !showRejected) return false;
+      return true;
+    };
+
+    clone.querySelectorAll('.sw4-profile-table tbody').forEach(tbody => {
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.forEach(row => {
+        const pill = row.querySelector('.sw4-pill');
+        if(pill){
+          const st = pill.textContent.trim().toLowerCase();
+          if(!statusFilter(st)) row.remove();
+        }
+      });
+
+      const remaining = Array.from(tbody.querySelectorAll('tr'));
+      if(remaining.length > 1){
+        remaining.sort((a, b) => {
+          if(sortBy === 'date-asc'){
+            return (a.cells[0]?.textContent||'').localeCompare(b.cells[0]?.textContent||'');
+          } else if(sortBy === 'type'){
+            const ta = (a.cells[1]?.textContent||'').trim(), tb = (b.cells[1]?.textContent||'').trim();
+            return ta.localeCompare(tb) || (b.cells[0]?.textContent||'').localeCompare(a.cells[0]?.textContent||'');
+          } else if(sortBy === 'status'){
+            const order = {approved:0,pending:1,rejected:2};
+            const sa = (a.querySelector('.sw4-pill')?.textContent||'').trim().toLowerCase();
+            const sb2 = (b.querySelector('.sw4-pill')?.textContent||'').trim().toLowerCase();
+            return (order[sa]??3) - (order[sb2]??3) || (b.cells[0]?.textContent||'').localeCompare(a.cells[0]?.textContent||'');
+          }
+          return (b.cells[0]?.textContent||'').localeCompare(a.cells[0]?.textContent||'');
+        });
+        remaining.forEach(r => tbody.appendChild(r));
+      }
+    });
+
+    const actions = clone.querySelector('.sw4-profile-actions');
+    if(actions) actions.style.display = 'none';
+
+    const now = new Date();
+    const printDate = now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+
     const win = window.open('','_blank','width=900,height=700');
     win.document.write(`<!doctype html><html><head><title>Staff Profile — Print</title>
     <style>
@@ -3758,9 +3846,11 @@
       .sw4-pill-yellow{background:#fef9c3;color:#854d0e}
       .sw4-pill-red{background:#fee2e2;color:#991b1b}
       .sw4-profile-actions{display:none}
+      .sw4-print-filters{display:none}
       .shift-cell{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #ccc}
+      .sw4-print-footer{margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;display:flex;justify-content:space-between}
       @media print{body{padding:15px}h1{font-size:20px}}
-    </style></head><body>${page.innerHTML}</body></html>`);
+    </style></head><body>${clone.innerHTML}<div class="sw4-print-footer"><span>Surgical Ward 4 — Staff Profile Report</span><span>Printed: ${printDate}</span></div></body></html>`);
     win.document.close();
     setTimeout(()=>{ win.focus(); win.print(); }, 400);
   };
@@ -3832,6 +3922,65 @@
     display:flex!important;
     gap:8px!important;
     flex-shrink:0!important;
+  }
+  .sw4-print-filters{
+    background:linear-gradient(135deg,#faf5ff,#f3e8ff)!important;
+    border:1.5px solid #d8b4fe!important;
+    border-radius:14px!important;
+    padding:16px 20px!important;
+    margin-bottom:20px!important;
+  }
+  .sw4-print-filters-title{
+    font-size:14px!important;
+    font-weight:800!important;
+    color:#581c87!important;
+    margin:0 0 10px 0!important;
+  }
+  .sw4-filter-row{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:12px 20px!important;
+    align-items:center!important;
+    margin-bottom:8px!important;
+  }
+  .sw4-filter-row:last-child{margin-bottom:0!important}
+  .sw4-filter-check{
+    display:flex!important;
+    align-items:center!important;
+    gap:6px!important;
+    font-size:13px!important;
+    font-weight:600!important;
+    color:#3b0764!important;
+    cursor:pointer!important;
+    white-space:nowrap!important;
+  }
+  .sw4-filter-check input[type="checkbox"]{
+    width:16px!important;
+    height:16px!important;
+    accent-color:#7e22ce!important;
+    cursor:pointer!important;
+  }
+  .sw4-filter-lbl{
+    font-size:13px!important;
+    font-weight:700!important;
+    color:#581c87!important;
+  }
+  .sw4-filter-select{
+    padding:5px 10px!important;
+    border:1.5px solid #c084fc!important;
+    border-radius:8px!important;
+    font-size:13px!important;
+    font-weight:600!important;
+    color:#3b0764!important;
+    background:#fff!important;
+    cursor:pointer!important;
+    outline:none!important;
+  }
+  .sw4-filter-select:focus{border-color:#7e22ce!important;box-shadow:0 0 0 2px rgba(126,34,206,.2)!important}
+  .sw4-filter-sort{
+    margin-top:4px!important;
+    padding-top:10px!important;
+    border-top:1px solid #e9d5ff!important;
   }
   .sw4-profile-section{
     margin-bottom:24px!important;
@@ -3917,6 +4066,9 @@
     .sw4-profile-name{font-size:22px!important}
     .sw4-profile-stats{gap:8px!important}
     .sw4-profile-stat{min-width:80px!important;padding:10px!important}
+    .sw4-print-filters{padding:12px 14px!important}
+    .sw4-filter-row{gap:8px 14px!important}
+    .sw4-filter-check{font-size:12px!important}
   }
 </style>
 
