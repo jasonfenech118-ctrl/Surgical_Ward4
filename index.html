@@ -1809,7 +1809,7 @@
   longLeaveDisplayCode = function(_daysMap,_isoDate,actualCode){return normaliseRosterCode(actualCode);};
   sw4IsPrivateLeaveCode = function(code){return ["L","AL","SL","ML","ST","TI","TO","OT","VL","PL","APP","ALV"].includes(normaliseRosterCode(code));};
   requestCodeLabel = function(code){const map={L:"Leave",SL:"Sick Leave",ML:"Maternity Leave",ST:"Study Leave",TI:"TIL In",TO:"TIL Out",OT:"Overtime",D:"Day",N:"Night",O:"Off",R:"Rest",VL:"Vacation Leave"};return map[normaliseRosterCode(code)]||normaliseRosterCode(code)||"";};
-  requestSummaryText = function(row){const bits=[requestCodeLabel(row.request_code)];if(row.is_hourly)bits.push(`Hourly · ${escapeHtml(row.start_time||"07:00")} · ${escapeHtml(String(row.hours||"1"))} hour${Number(row.hours||1)===1?"":"s"}`);else bits.push("Full day");return bits.join(" · ");};
+  requestSummaryText = function(row){const bits=[requestCodeLabel(row.request_code)];if(row.is_hourly){const st=row.start_time||"07:00";const h=parseInt(String(st).split(":")[0],10);const icon=Number.isFinite(h)?((h>=7&&h<19)?"☀️":"🌙"):"";bits.push(`${icon?icon+" ":""}Hourly · ${escapeHtml(st)} · ${escapeHtml(String(row.hours||"1"))} hour${Number(row.hours||1)===1?"":"s"}`);}else bits.push("Full day");return bits.join(" · ");};
 
   getTabs = function(){
     const tabs=[["monthlyRoster","Monthly Roster"],["leaveTil","Leave, TIL & OT"]];
@@ -3485,9 +3485,25 @@
     if(!hourly || !hours) return '';
     return `${hours % 1 === 0 ? hours.toFixed(0) : hours.toFixed(1)}h`;
   }
+  function sw4IconForHour(h){return (h>=7 && h<19) ? '☀️' : '🌙';}
+  function sw4TimedDutyIcon(row){
+    if(!row) return '';
+    const hourly = row.is_hourly === true || row.is_hourly === 'true' || Number(row.hours || 0) > 0;
+    if(hourly && row.start_time){
+      const h = parseInt(String(row.start_time).split(':')[0], 10);
+      if(Number.isFinite(h)) return sw4IconForHour(h);
+    }
+    const code = normaliseRosterCode(row.request_code || row.code || '');
+    if(code === 'N') return '🌙';
+    if(['A','M','D','E'].includes(code)) return '☀️';
+    return '';
+  }
   function sw4HoursMarkV18(row){
     const text = sw4HoursTextV18(row);
-    return text ? `<span class="sw4-hour-mark">${escapeHtml(text)}</span>` : '';
+    const icon = sw4TimedDutyIcon(row);
+    if(!text && !icon) return '';
+    const title = icon === '🌙' ? 'Night hours' : (icon === '☀️' ? 'Daytime hours' : '');
+    return `<span class="sw4-hour-mark"${title?` title="${title}"`:''}>${icon ? icon + ' ' : ''}${escapeHtml(text)}</span>`;
   }
 
   async function sw4LoadCodStatusMapForMonthV18(start,end){
