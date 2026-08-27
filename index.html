@@ -3096,6 +3096,7 @@
             <div><label>End time / Scope</label><select id="shiftPickerScope"><option value="day">Day (full shift)</option><option value="night">Night (full shift)</option><optgroup label="End time (24h)">${sw4EndTimeOptions('14:00')}</optgroup></select></div>
           </div>
         </div>
+        <div class="sw4-clear-row"><button type="button" class="sw4-clear-btn" id="sw4ClearDayBtn" onclick="sw4ClearShiftDay()">↺ Clear this day — reset to the original roster</button></div>
         <div class="shift-modal-actions sw4-single-save-row">
           <button type="button" class="secondary" onclick="closeShiftPickerModal()">Cancel</button>
           <button type="button" class="success" onclick="saveShiftPickerEvent()">Save Event</button>
@@ -3122,6 +3123,8 @@
     document.getElementById('shiftPickerNotes').value='';
     document.getElementById('shiftPickerEventStart').value='07:00';
     document.getElementById('shiftPickerScope').value='day';
+    const clearBtn=document.getElementById('sw4ClearDayBtn');
+    if(clearBtn) clearBtn.style.display = manage ? '' : 'none';
     renderShiftPickerChoices();
     modal.classList.remove('hidden');
   };
@@ -3166,6 +3169,23 @@
     else if(appState.activeTab==='monthlyRoster') await renderMonthlyRoster();
   };
 
+  window.sw4ClearShiftDay = async function(){
+    const state = shiftPickerState;
+    if(!state){ closeShiftPickerModal(); return; }
+    if(!state.manage){
+      showError('Only the charge nurse can reset a day here. To remove your own request, ask the charge nurse to reject it from the Leave, TIL & OT tab.');
+      return;
+    }
+    const baseline = normaliseRosterCode(state.staff?.days?.[state.shiftDate]?.baseline_shift_code || '');
+    const storedCode = baseline ? storeRosterCode(baseline) : 'O';
+    if(!window.confirm('Clear this day and put it back to the original rostered shift?')) return;
+    const {error} = await sb.rpc('upsert_ward_roster_override',{p_ward_id:appState.selectedWardId,p_staff_id:state.staffId,p_shift_date:state.shiftDate,p_shift_code:storedCode,p_override_reason:reasonForShift(storedCode),p_notes:null});
+    if(error){ showError(error.message); return; }
+    closeShiftPickerModal();
+    showSuccess(baseline ? `Day reset to the original roster (${displayShiftCode(baseline)}).` : 'Day cleared to Off.');
+    await renderMonthlyRoster();
+  };
+
   document.addEventListener('DOMContentLoaded', sw4ApplyHeaderBranding);
   setTimeout(sw4ApplyHeaderBranding, 0);
 })();
@@ -3192,7 +3212,10 @@
   .shift-choice-label{font-size:12px !important;font-weight:800 !important;color:#2c4258 !important;}
   .shift-modal-note{min-height:58px !important;background:#f9fbfc !important;border:1px solid #dbe5ed !important;border-radius:12px !important;}
   .sw4-scope-grid{grid-template-columns:1fr 1fr !important;}
-  .sw4-single-save-row{grid-template-columns:1fr 1fr !important;margin-top:16px !important;}
+  .sw4-clear-row{margin-top:14px !important;}
+  .sw4-clear-btn{width:100% !important;background:#fff !important;color:#b91c1c !important;border:1px dashed #f0b4b4 !important;border-radius:12px !important;padding:10px !important;font-weight:800 !important;font-size:13px !important;font-family:inherit !important;cursor:pointer !important;}
+  .sw4-clear-btn:hover{background:#fef2f2 !important;border-color:#e57373 !important;}
+  .sw4-single-save-row{grid-template-columns:1fr 1fr !important;margin-top:12px !important;}
   .sw4-single-save-row .success{background:linear-gradient(135deg,#1d6fa5,#1d8f93) !important;border:none !important;}
   .sw4-single-save-row .secondary{background:#fff !important;border:1px solid #d3dde7 !important;color:#27445b !important;}
   .top-user strong,.brand-title{text-shadow:0 1px 0 rgba(0,0,0,.08);}
@@ -4358,7 +4381,7 @@
   body.sw4-svetlana-theme .shift-M,
   body.sw4-svetlana-theme .shift-E{background:#2563eb!important;color:#ffffff!important;border-color:#1d4ed8!important}
   body.sw4-svetlana-theme .shift-N{background:#0b1220!important;color:#ffffff!important;border-color:#0b1220!important}
-  body.sw4-svetlana-theme .shift-R{background:#e0a11a!important;color:#3a2a05!important;border-color:#c07f10!important}
+  body.sw4-svetlana-theme .shift-R{background:#94a3b8!important;color:#1f2937!important;border-color:#64748b!important}
 </style>
 
 <script>
