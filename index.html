@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -3053,6 +3053,15 @@
     }
     return html;
   }
+  function sw4EndTimeOptions(selected='14:00'){
+    let html='';
+    for(let h=0; h<24; h++){
+      const t=String(h).padStart(2,'0')+':00';
+      const v='end:'+t;
+      html += `<option value="${v}" ${v===selected?'selected':''}>${t}</option>`;
+    }
+    return html;
+  }
 
   const hourlyEligibleCodes = new Set(['L','SL','TI','TO','OT','ST','ML']);
   const oldFullSaveV14 = saveShiftPickerModal;
@@ -3084,7 +3093,7 @@
           <div class="shift-modal-section-title">Request duration / scope</div>
           <div class="hourly-grid sw4-scope-grid">
             <div><label>Start time</label><select id="shiftPickerEventStart">${sw4TimeOptions('07:00')}</select></div>
-            <div><label>Duration / Scope</label><select id="shiftPickerScope"><option value="day">Day</option><option value="night">Night</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="3">3 hours</option><option value="4">4 hours</option><option value="5">5 hours</option><option value="6">6 hours</option><option value="7">7 hours</option><option value="8">8 hours</option></select></div>
+            <div><label>End time / Scope</label><select id="shiftPickerScope"><option value="day">Day (full shift)</option><option value="night">Night (full shift)</option><optgroup label="End time (24h)">${sw4EndTimeOptions('14:00')}</optgroup></select></div>
           </div>
         </div>
         <div class="shift-modal-actions sw4-single-save-row">
@@ -3136,7 +3145,18 @@
       return;
     }
     const startTime=document.getElementById('shiftPickerEventStart')?.value||'07:00';
-    const hours=Number(scope||1);
+    const endTime=scope.startsWith('end:')?scope.slice(4):'';
+    let hours;
+    if(endTime){
+      const [sh,sm]=startTime.split(':').map(Number);
+      const [eh,em]=endTime.split(':').map(Number);
+      let mins=(eh*60+(em||0))-(sh*60+(sm||0));
+      if(mins<=0)mins+=24*60; // end past midnight
+      hours=Math.round(mins/60);
+      if(hours<1){ showError('End time must be after the start time.'); return; }
+    } else {
+      hours=Number(scope||1);
+    }
     const notes=(document.getElementById('shiftPickerNotes')?.value||'').trim()||null;
     const {error}=await sb.rpc('submit_sw4_leave_request',{p_request_date:state.shiftDate,p_request_code:requestCode,p_is_hourly:true,p_start_time:startTime,p_hours:hours,p_staff_note:notes});
     if(error){ showError(error.message); return; }
@@ -4313,6 +4333,16 @@
 
   /* Hide changed-duty override dots everywhere — legend covers shift meanings */
   .override-dot{display:none!important}
+
+  /* Colour-blind-friendly Day/Night/Rest — separated by hue AND lightness (all profiles) */
+  .shift-D,.shift-M,.shift-E{background:#2563eb!important;color:#ffffff!important;border-color:#1d4ed8!important}
+  .shift-N{background:#0b1220!important;color:#ffffff!important;border-color:#0b1220!important}
+  .shift-R{background:#94a3b8!important;color:#1f2937!important;border-color:#64748b!important}
+  body.sw4-svetlana-theme .shift-D,
+  body.sw4-svetlana-theme .shift-M,
+  body.sw4-svetlana-theme .shift-E{background:#2563eb!important;color:#ffffff!important;border-color:#1d4ed8!important}
+  body.sw4-svetlana-theme .shift-N{background:#0b1220!important;color:#ffffff!important;border-color:#0b1220!important}
+  body.sw4-svetlana-theme .shift-R{background:#e0a11a!important;color:#3a2a05!important;border-color:#c07f10!important}
 </style>
 
 <script>
