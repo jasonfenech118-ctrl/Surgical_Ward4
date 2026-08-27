@@ -3096,7 +3096,7 @@
             <div><label>End time / Scope</label><select id="shiftPickerScope"><option value="day">Day (full shift)</option><option value="night">Night (full shift)</option><optgroup label="End time (24h)">${sw4EndTimeOptions('14:00')}</optgroup></select></div>
           </div>
         </div>
-        <div class="sw4-clear-row"><button type="button" class="sw4-clear-btn" id="sw4ClearDayBtn" onclick="sw4ClearShiftDay()">↺ Clear this day — reset to the original roster</button></div>
+        <div class="sw4-clear-row"><button type="button" class="sw4-clear-btn" id="sw4ClearDayBtn" onclick="sw4ClearShiftDay()">🗑 Delete this entry · reset the day (removes OT / leave too)</button></div>
         <div class="shift-modal-actions sw4-single-save-row">
           <button type="button" class="secondary" onclick="closeShiftPickerModal()">Cancel</button>
           <button type="button" class="success" onclick="saveShiftPickerEvent()">Save Event</button>
@@ -3176,14 +3176,30 @@
       showError('Only the charge nurse can reset a day here. To remove your own request, ask the charge nurse to reject it from the Leave, TIL & OT tab.');
       return;
     }
+    if(!window.confirm('Clear this day and put it back to the original rostered shift? This also removes any leave, TIL or overtime request on this day.')) return;
+    // 1) Remove any leave / TIL / overtime request on this day (OT etc. are overlays the roster override cannot clear)
+    let removedRequest = false;
+    try{
+      const res = await sb.rpc('list_sw4_leave_requests_for_approver',{p_status:null});
+      if(!res.error){
+        const matches = (res.data||[]).filter(r =>
+          String(r.staff_id) === String(state.staffId) &&
+          String(r.request_date||'').slice(0,10) === state.shiftDate &&
+          ['pending','approved'].includes(String(r.status||'').toLowerCase()));
+        for(const m of matches){
+          const dec = await sb.rpc('decide_sw4_leave_request',{p_request_id:m.id,p_decision:'rejected',p_approver_note:'Removed — entered by mistake'});
+          if(dec.error){ showError(dec.error.message); return; }
+          removedRequest = true;
+        }
+      }
+    }catch(e){ /* fall through to roster reset */ }
+    // 2) Reset the roster override to the baseline scheduled shift
     const baseline = normaliseRosterCode(state.staff?.days?.[state.shiftDate]?.baseline_shift_code || '');
     const storedCode = baseline ? storeRosterCode(baseline) : 'O';
-    if(!window.confirm('Clear this day and put it back to the original rostered shift?')) return;
     const {error} = await sb.rpc('upsert_ward_roster_override',{p_ward_id:appState.selectedWardId,p_staff_id:state.staffId,p_shift_date:state.shiftDate,p_shift_code:storedCode,p_override_reason:reasonForShift(storedCode),p_notes:null});
     if(error){ showError(error.message); return; }
     closeShiftPickerModal();
-    showSuccess(baseline ? `Day reset to the original roster (${displayShiftCode(baseline)}).` : 'Day cleared to Off.');
-    if(window.sw4SetUndo) window.sw4SetUndo(state.staffId, state.shiftDate, normaliseRosterCode(state.currentCode||''), ((state.staff&&state.staff.full_name)?String(state.staff.full_name).trim().split(/\s+/)[0]:'')+' · '+String(state.shiftDate).split('-').reverse().join('/'));
+    showSuccess(baseline ? `Day cleared back to the original roster (${displayShiftCode(baseline)}).` : 'Day cleared to Off.');
     await renderMonthlyRoster();
   };
 
