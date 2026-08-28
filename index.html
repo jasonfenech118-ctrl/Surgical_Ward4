@@ -2511,6 +2511,7 @@
       document.getElementById("content").innerHTML=`<div class="card"><p class="muted">Loading...</p></div>`;
       try{
         if(tabKey==="monthlyRoster")await renderMonthlyRoster();
+        else if(tabKey==="dailyAttendance"){ if(window.sw4RenderDailyAttendance) await window.sw4RenderDailyAttendance(); else await renderMonthlyRoster(); }
         else if(tabKey==="leaveTil")await renderLeaveTil();
         else if(tabKey==="changeDuty")await renderChangeOfDuty();
         else if(tabKey==="myRecords")await renderMyRecords();
@@ -2835,7 +2836,7 @@
   };
 
   getTabs = function(){
-    const tabs = [["monthlyRoster","Monthly Roster"],["leaveTil","Leave, TIL & OT"],["changeDuty","Change of Duty"],["myRecords","My Record History"]];
+    const tabs = [["monthlyRoster","Monthly Roster"],["dailyAttendance","Daily Attendance"],["leaveTil","Leave, TIL & OT"],["changeDuty","Change of Duty"],["myRecords","My Record History"]];
     if(sw4IsFullControl()){
       tabs.push(["staffManagement","My Ward Staff"]);
       tabs.push(["auditVisuals","KPI Planning"]);
@@ -4542,6 +4543,68 @@
       }
     });
     return holidayMap;
+  };
+})();
+</script>
+
+<script>
+/* SW4 — Daily Attendance tab (today's ward attendance at a glance) */
+(function(){
+  window.sw4RenderDailyAttendance = async function(){
+    const content=document.getElementById('content');
+    const wardId=requireSelectedWard();
+    const today=todayISO();
+    const parts=String(today).split('-').map(Number);
+    const tdate=new Date(parts[0],(parts[1]||1)-1,parts[2]||1);
+    const selectedW=(typeof selectedWard==='function')?selectedWard():null;
+    content.innerHTML=`<div class="card"><p class="muted">Loading…</p></div>`;
+    let rosterResult, leaveMap;
+    try{
+      [rosterResult, leaveMap]=await Promise.all([
+        sb.rpc('get_my_ward_roster_between',{p_ward_id:wardId,p_start_date:today,p_end_date:today}),
+        loadLeaveStatusMapForMonth(today,today)
+      ]);
+    }catch(e){ showError('Could not load attendance: '+(e&&e.message?e.message:e)); return; }
+    if(rosterResult.error){ showError(rosterResult.error.message); return; }
+    const allGrouped=groupRosterByStaff(rosterResult.data||[]);
+    const grouped=sw4IsChargeOrManager()?allGrouped:allGrouped.filter(s=>!sw4IsChargeNurseRow(s));
+    const overlayCode=function(leaveRow, fallback){
+      if(!leaveRow) return fallback;
+      const status=String(leaveRow.status||'').toLowerCase();
+      const req=normaliseRosterCode(leaveRow.request_code||'');
+      if(status==='pending') return 'PL';
+      if(status==='approved') return ['OT','TI','TO','SL','ML','ST'].includes(req) ? req : 'APP';
+      return fallback;
+    };
+    const rows=grouped.map(function(staff){
+      const r=staff.days?staff.days[today]:null;
+      const actualCode=(r&&r.live_shift_code)||'';
+      const baseDisplay=normaliseRosterCode(actualCode);
+      const leaveRow=leaveMap?leaveMap[staff.staff_id+'|'+today]:null;
+      const display=overlayCode(leaveRow, baseDisplay);
+      return {staff:staff, code:normaliseRosterCode(display)||'O', leaveRow:leaveRow};
+    });
+    const dayC=rows.filter(x=>['D','M','A','E'].includes(x.code)).length;
+    const nightC=rows.filter(x=>x.code==='N').length;
+    const offC=rows.filter(x=>['O','R'].includes(x.code)).length;
+    const leaveC=rows.filter(x=>['L','LL','VL','APP'].includes(x.code)).length;
+    const sickC=rows.filter(x=>x.code==='SL').length;
+    const otC=rows.filter(x=>x.code==='OT').length;
+    const coverNeeded=Math.max(0, leaveC-1-otC);
+    const stat=function(v,l,warn){return '<div class="stat"><div class="stat-value"'+(warn&&v>0?' style="color:#b45309"':'')+'>'+v+'</div><div class="stat-label">'+l+'</div></div>';};
+    // sort: on-duty first (day, night), then off/rest, then leave/sick
+    const rank=function(c){ if(['D','M','A','E'].includes(c))return 0; if(c==='N')return 1; if(c==='OT')return 2; if(['O','R'].includes(c))return 4; return 3; };
+    rows.sort(function(a,b){ return rank(a.code)-rank(b.code) || cleanStaffName(a.staff.full_name).localeCompare(cleanStaffName(b.staff.full_name)); });
+    const bodyRows=rows.map(function(x){
+      const c=x.code||'O';
+      const lr=x.leaveRow;
+      const hourly=(lr&&(lr.is_hourly===true||lr.is_hourly==='true'||Number(lr.hours||0)>0))?('<span class="muted" style="font-size:11px;margin-left:6px">'+escapeHtml(String(lr.start_time||''))+' · '+escapeHtml(String(lr.hours||''))+'h</span>'):'';
+      return '<tr><td><strong>'+escapeHtml(cleanStaffName(x.staff.full_name))+'</strong></td><td>'+escapeHtml(labelRole(x.staff.role))+'</td><td><span class="shift-cell shift-'+escapeHtml(c)+'" style="display:inline-flex;min-width:34px;height:30px;border-radius:8px">'+escapeHtml(displayShiftCode(c))+'</span>'+hourly+'</td><td>'+escapeHtml(shiftLabel(c)||'')+'</td></tr>';
+    }).join('');
+    content.innerHTML=
+      '<div class="card roster-hero"><div><h2>Daily Attendance</h2><h1>'+escapeHtml((selectedW&&selectedW.ward_name)||'Surgical Ward 4')+'</h1><div class="roster-month-focus">'+escapeHtml(weekdayShort(tdate))+' · '+escapeHtml(formatDate(today))+'</div></div></div>'+
+      '<div class="card"><div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(96px,1fr))">'+stat(dayC,'Day')+stat(nightC,'Night')+stat(offC,'Off / Rest')+stat(leaveC,'On leave')+stat(sickC,'Sick')+stat(coverNeeded,'Cover needed',true)+'</div></div>'+
+      '<div class="card"><div class="table-wrap"><table class="kpi-small-table"><thead><tr><th>Staff Member</th><th>Role</th><th>Duty today</th><th>Status</th></tr></thead><tbody>'+(bodyRows||'<tr><td colspan="4" class="muted">No roster found for today.</td></tr>')+'</tbody></table></div></div>';
   };
 })();
 </script>
